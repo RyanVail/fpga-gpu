@@ -1,5 +1,10 @@
 const std = @import("std");
 const fpga_gpu = @import("fpga_gpu");
+const glsl = @import("glsl.zig");
+
+test {
+    _ = glsl;
+}
 
 pub fn main() !void {
     // Prints to stderr, ignoring potential errors.
