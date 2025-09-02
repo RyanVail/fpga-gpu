@@ -1,7 +1,6 @@
 const std = @import("std");
 
-const glsl = @import("../glsl.zig");
-const parser = glsl.parser;
+const parser = @import("../parser.zig");
 
 pub const Type = struct {
     const Self = @This();

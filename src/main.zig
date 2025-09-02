@@ -3,7 +3,7 @@ const fpga_gpu = @import("fpga_gpu");
 const glsl = @import("glsl.zig");
 
 test {
-    _ = glsl;
+    std.testing.refAllDecls(@This());
 }
 
 pub fn main() !void {
