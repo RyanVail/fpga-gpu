@@ -8,26 +8,24 @@ pub const Type = struct {
     constant: bool = false,
     primitive: Primitive,
 
-    pub const GetError = error{
+    pub const ReadError = error{
         ExpectedType,
     };
 
-    pub fn get(iter: *parser.TokenIter) GetError!?Self {
+    pub fn read(iter: *parser.TokenIter) ReadError!?Self {
         var self = Self{ .primitive = undefined };
 
-        var str = iter.peek() orelse return null;
+        var str = iter.next() orelse return null;
         if (std.mem.eql(u8, str, "const")) {
-            _ = iter.next() orelse unreachable;
             self.constant = true;
 
-            str = iter.peek() orelse return error.ExpectedType;
+            str = iter.next() orelse return error.ExpectedType;
         }
 
-        self.primitive = Primitive.get(str) orelse {
+        self.primitive = Primitive.read(str) orelse {
             return if (self.constant) error.ExpectedType else null;
         };
 
-        _ = iter.next() orelse unreachable;
         return self;
     }
 };
@@ -75,7 +73,7 @@ pub const Primitive = enum {
     dvec3,
     dvec4,
 
-    pub fn get(tok: []const u8) ?Self {
+    pub fn read(tok: []const u8) ?Self {
         return map.get(tok);
     }
 
@@ -89,6 +87,7 @@ pub const Primitive = enum {
 };
 
 const expectEqual = std.testing.expectEqual;
+const expectEqualSlices = std.testing.expectEqualSlices;
 
 test "primitive get" {
     const Pair = struct { ?Primitive, []const u8 };
@@ -107,12 +106,12 @@ test "primitive get" {
     };
 
     for (results) |r| {
-        try expectEqual(r[0], Primitive.get(r[1]));
+        try expectEqual(r[0], Primitive.read(r[1]));
     }
 }
 
-test "type get" {
-    const Pair = struct { Type.GetError!?Type, []const u8 };
+test "type read" {
+    const Pair = struct { Type.ReadError!?Type, []const u8 };
     const results = [_]Pair{
         .{ null, "" },
         .{ .{ .primitive = .int }, "int" },
@@ -131,6 +130,35 @@ test "type get" {
 
     for (results) |r| {
         var iter = std.mem.tokenizeAny(u8, r[1], " ");
-        try expectEqual(r[0], Type.get(&iter));
+        try expectEqual(r[0], Type.read(&iter));
+    }
+}
+
+test "type iter pos" {
+    const Pair = struct { Type.ReadError!?void, []const u8 };
+    const results = [_]Pair{
+        .{ {}, "int" },
+        .{ {}, "const int" },
+        .{ error.ExpectedType, "const" },
+        .{ error.ExpectedType, "const _" },
+        .{ {}, "const vec3" },
+        .{ {}, "bool" },
+        .{ {}, "const vec3" },
+        .{ {}, "const int" },
+        .{ {}, "bvec3" },
+    };
+
+    for (results) |r| {
+        var iter = std.mem.tokenizeAny(u8, r[1], " ");
+        _ = Type.read(&iter) catch {
+            try expectEqual(error.ExpectedType, r[0]);
+            continue;
+        } orelse {
+            try expectEqual(null, r[0]);
+            continue;
+        };
+
+        try expectEqual(null, iter.next());
+        try expectEqual({}, r[0]);
     }
 }

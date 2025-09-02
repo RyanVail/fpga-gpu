@@ -60,7 +60,7 @@ pub const Op = enum {
     bor_assign,
     band_assign,
 
-    pub fn get(tok: []const u8) ?Self {
+    pub fn read(tok: []const u8) ?Self {
         return map.get(tok);
     }
 
@@ -103,7 +103,7 @@ pub const Op = enum {
 
 const expectEqual = std.testing.expectEqual;
 
-test "operator get" {
+test "operator read" {
     const Pair = struct { ?Op, []const u8 };
     const results = [_]Pair{
         .{ .mod_assign, "%=" },
@@ -120,6 +120,6 @@ test "operator get" {
     };
 
     for (results) |r| {
-        try expectEqual(r[0], Op.get(r[1]));
+        try expectEqual(r[0], Op.read(r[1]));
     }
 }

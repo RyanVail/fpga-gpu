@@ -7,8 +7,3 @@ pub const @"type" = @import("parser/type.zig");
 pub const Type = @"type".Type;
 
 pub const TokenIter = std.mem.TokenIterator(u8, .any);
-
-test {
-    _ = operator;
-    _ = @"type";
-}
