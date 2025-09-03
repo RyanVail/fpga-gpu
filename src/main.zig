@@ -5,6 +5,7 @@ const glsl = @import("glsl.zig");
 test {
     _ = glsl.parser.@"type";
     _ = glsl.parser.Token;
+    _ = glsl.parser.Tokenizer;
 
     std.testing.refAllDecls(@This());
 }
