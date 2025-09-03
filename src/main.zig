@@ -7,6 +7,7 @@ test {
     _ = glsl.parser.Token;
     _ = glsl.parser.Tokenizer;
     _ = glsl.parser.operator;
+    _ = glsl.parser.Func;
 
     std.testing.refAllDecls(@This());
 }

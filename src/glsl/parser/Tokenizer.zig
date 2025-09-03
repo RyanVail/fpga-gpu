@@ -239,6 +239,10 @@ pub fn next(self: *Self) Error!Token {
     return result;
 }
 
+pub fn back(self: *Self, tok: Token) void {
+    self.index = tok.loc.start;
+}
+
 const expectEqual = std.testing.expectEqual;
 
 test "assignment expression" {
