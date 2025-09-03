@@ -3,9 +3,10 @@ const fpga_gpu = @import("fpga_gpu");
 const glsl = @import("glsl.zig");
 
 test {
-    _ = glsl.parser.@"type";
+    _ = glsl.parser.type;
     _ = glsl.parser.Token;
     _ = glsl.parser.Tokenizer;
+    _ = glsl.parser.operator;
 
     std.testing.refAllDecls(@This());
 }

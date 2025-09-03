@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const parser = @import("../parser.zig");
+const Tokenizer = parser.Tokenizer;
 
 pub const Type = struct {
     const Self = @This();
@@ -8,25 +9,27 @@ pub const Type = struct {
     constant: bool = false,
     primitive: Primitive,
 
-    pub const ReadError = error{
+    pub const ReadError = Tokenizer.Error || error{
         ExpectedType,
     };
 
-    pub fn read(iter: *parser.TokenIter) ReadError!?Self {
+    pub fn read(iter: *Tokenizer) ReadError!?Self {
         var self = Self{ .primitive = undefined };
 
-        var str = iter.next() orelse return null;
-        if (std.mem.eql(u8, str, "const")) {
+        var tok = try iter.next();
+        if (tok.tag == .keyword_const) {
             self.constant = true;
-
-            str = iter.next() orelse return error.ExpectedType;
+            tok = try iter.next();
         }
 
-        self.primitive = Primitive.read(str) orelse {
-            return if (self.constant) error.ExpectedType else null;
-        };
+        if (tok.tag == .identifier) {
+            if (Primitive.read(iter.getSrc(tok))) |p| {
+                self.primitive = p;
+                return self;
+            }
+        }
 
-        return self;
+        return if (self.constant) error.ExpectedType else null;
     }
 };
 
@@ -47,7 +50,7 @@ pub const Primitive = enum {
         break :b std.StaticStringMap(Self).initComptime(pairs);
     };
 
-    @"bool",
+    bool,
     int,
     uint,
     float,
@@ -73,15 +76,15 @@ pub const Primitive = enum {
     dvec3,
     dvec4,
 
-    pub fn read(tok: []const u8) ?Self {
-        return map.get(tok);
+    pub fn read(str: []const u8) ?Self {
+        return map.get(str);
     }
 
     pub fn toString(self: Self) []const u8 {
         return switch (self) {
             inline else => |t| {
                 return @tagName(t);
-            }
+            },
         };
     }
 };
@@ -111,7 +114,7 @@ test "primitive get" {
 }
 
 test "type read" {
-    const Pair = struct { Type.ReadError!?Type, []const u8 };
+    const Pair = struct { Type.ReadError!?Type, [:0]const u8 };
     const results = [_]Pair{
         .{ null, "" },
         .{ .{ .primitive = .int }, "int" },
@@ -129,13 +132,13 @@ test "type read" {
     };
 
     for (results) |r| {
-        var iter = std.mem.tokenizeAny(u8, r[1], " ");
+        var iter = Tokenizer.from(r[1]);
         try expectEqual(r[0], Type.read(&iter));
     }
 }
 
 test "type iter pos" {
-    const Pair = struct { Type.ReadError!?void, []const u8 };
+    const Pair = struct { Type.ReadError!?void, [:0]const u8 };
     const results = [_]Pair{
         .{ {}, "int" },
         .{ {}, "const int" },
@@ -149,7 +152,7 @@ test "type iter pos" {
     };
 
     for (results) |r| {
-        var iter = std.mem.tokenizeAny(u8, r[1], " ");
+        var iter = Tokenizer.from(r[1]);
         _ = Type.read(&iter) catch {
             try expectEqual(error.ExpectedType, r[0]);
             continue;
@@ -158,7 +161,7 @@ test "type iter pos" {
             continue;
         };
 
-        try expectEqual(null, iter.next());
+        try expectEqual(.eof, (try iter.next()).tag);
         try expectEqual({}, r[0]);
     }
 }

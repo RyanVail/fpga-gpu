@@ -12,7 +12,11 @@ buffer: []const u8,
 index: usize = 0,
 
 pub fn from(buffer: [:0]const u8) Self {
-    return .{ .buffer = buffer[0..buffer.len + 1] };
+    return .{ .buffer = buffer[0 .. buffer.len + 1] };
+}
+
+pub fn getSrc(self: *const Self, tok: Token) []const u8 {
+    return self.buffer[tok.loc.start..tok.loc.end];
 }
 
 const State = enum {
@@ -58,7 +62,7 @@ pub fn next(self: *Self) Error!Token {
                 result.loc.start = self.index;
                 continue :state .start;
             },
-            'a'...'z', 'A'...'Z', '_', => {
+            'a'...'z', 'A'...'Z', '_' => {
                 result.tag = .identifier;
                 continue :state .identifier;
             },
@@ -304,7 +308,7 @@ test "unexpected eof" {
         .angle_bracket_left_equal,
         .number,
         .r_paren,
-        error.UnexpectedChar
+        error.UnexpectedChar,
     };
 
     var iter = from("if (a <= 5.0)\x00 else {}");
