@@ -11,5 +11,6 @@ pub const Type = @"type".Type;
 pub const Primitive = @"type".Primitive;
 
 pub const Func = @import("parser/Func.zig");
+pub const Var = @import("parser/Var.zig");
 
 pub const TokenIter = std.mem.TokenIterator(u8, .any);
