@@ -3,6 +3,7 @@ pub const Type = parser.Type;
 pub const Block = @import("ir/Block.zig");
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const parser = @import("parser.zig");
 const Primitive = parser.Primitive;
@@ -143,7 +144,23 @@ pub fn instReader(buffer: []const Inst) InstReader {
     };
 }
 
+pub const InstWriter = struct {
+    const Self = @This();
+
+    buffer: std.ArrayList(Inst) = .{},
+
+    pub fn write(
+        self: *Self,
+        allocator: Allocator,
+        inst: Inst,
+    ) Allocator.Error!void {
+        try self.buffer.append(allocator, inst);
+    }
+};
+
+const debug_allocator = std.testing.allocator;
 const expectEqual = std.testing.expectEqual;
+const expectEqualSlices = std.testing.expectEqualSlices;
 
 test "inst reader" {
     const insts = [_]Inst{
@@ -158,4 +175,22 @@ test "inst reader" {
     }
 
     try expectEqual(null, reader.next());
+}
+
+test "inst writer" {
+    const insts = [_]Inst{
+        .{ .num = .{ .vec2 = @splat(1.0) } },
+        .{ .alloca = .{ .primitive = .bool } },
+        .{ .label = 5 },
+    };
+
+    var writer = InstWriter{};
+    for (insts) |inst| {
+        try writer.write(debug_allocator, inst);
+    }
+
+    const slice = try writer.buffer.toOwnedSlice(debug_allocator);
+    defer debug_allocator.free(slice);
+
+    try expectEqualSlices(Inst, &insts, slice);
 }
