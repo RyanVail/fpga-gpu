@@ -9,6 +9,8 @@ test {
     _ = glsl.parser.operator;
     _ = glsl.parser.Func;
     _ = glsl.parser.Var;
+    _ = glsl.ir;
+    _ = glsl.ir.operation;
 
     std.testing.refAllDecls(@This());
 }
