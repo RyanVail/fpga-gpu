@@ -1,5 +1,6 @@
 pub const operation = @import("ir/operation.zig");
 pub const Type = parser.Type;
+pub const Block = @import("ir/Block.zig");
 
 const std = @import("std");
 const assert = std.debug.assert;

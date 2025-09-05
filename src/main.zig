@@ -11,6 +11,7 @@ test {
     _ = glsl.parser.Var;
     _ = glsl.ir;
     _ = glsl.ir.operation;
+    _ = glsl.ir.Block;
 
     std.testing.refAllDecls(@This());
 }
