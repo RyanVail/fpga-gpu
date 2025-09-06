@@ -153,8 +153,9 @@ pub const InstWriter = struct {
         self: *Self,
         allocator: Allocator,
         inst: Inst,
-    ) Allocator.Error!void {
+    ) Allocator.Error!Val.Id {
         try self.buffer.append(allocator, inst);
+        return @intCast(self.buffer.items.len - 1);
     }
 };
 
@@ -185,8 +186,8 @@ test "inst writer" {
     };
 
     var writer = InstWriter{};
-    for (insts) |inst| {
-        try writer.write(debug_allocator, inst);
+    for (insts, 0..) |inst, i| {
+        try expectEqual(i, try writer.write(debug_allocator, inst));
     }
 
     const slice = try writer.buffer.toOwnedSlice(debug_allocator);
