@@ -8,7 +8,8 @@ test {
     _ = glsl.parser.Tokenizer;
     _ = glsl.parser.operator;
     _ = glsl.parser.Func;
-    _ = glsl.parser.Var;
+    _ = glsl.parser.@"var";
+    _ = glsl.parser.Scope;
     _ = glsl.ir;
     _ = glsl.ir.operation;
     _ = glsl.ir.Block;
