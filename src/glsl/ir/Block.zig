@@ -70,7 +70,7 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 test read {
     const insts = [_]Inst{
         .{ .num = .{ .int = 5 } },
-        .{ .alloca = .{ .primitive = .vec3} },
+        .{ .alloca = .{ .primitive = .vec3 } },
         .{ .num = .{ .vec3 = @splat(5.0) } },
         .{ .branch = .{ .label = 0 } },
 

@@ -71,7 +71,7 @@ pub const Inst = union(enum) {
 
         pub fn isZero(self: @This()) bool {
             return switch (self) {
-                .@"bool" => |v| !v,
+                .bool => |v| !v,
                 .int => |v| v == 0,
                 .uint => |v| v == 0,
                 .float => |v| v == 0,
@@ -82,7 +82,7 @@ pub const Inst = union(enum) {
 
         pub fn isOne(self: @This()) bool {
             return switch (self) {
-                .@"bool" => |v| v,
+                .bool => |v| v,
                 .int => |v| v == 1,
                 .uint => |v| v == 1,
                 .float => |v| v == 1,
@@ -166,7 +166,7 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 test "inst reader" {
     const insts = [_]Inst{
         .{ .num = .{ .int = 5 } },
-        .{ .alloca = .{ .primitive = .vec3} },
+        .{ .alloca = .{ .primitive = .vec3 } },
         .{ .num = .{ .vec3 = @splat(5.0) } },
     };
 

@@ -13,6 +13,7 @@ pub const Primitive = @"type".Primitive;
 pub const Func = @import("parser/Func.zig");
 pub const @"var" = @import("parser/var.zig");
 pub const Scope = @import("parser/Scope.zig");
+pub const Expr = @import("parser/Expr.zig");
 
 pub const TokenIter = std.mem.TokenIterator(u8, .any);
 
@@ -51,7 +52,7 @@ pub fn parseNum(str: []const u8) std.fmt.ParseIntError!ir.Inst {
         }
     }
 
-    const num = str[0..end_index orelse str.len];
+    const num = str[0 .. end_index orelse str.len];
     return switch (num_type) {
         .int => .{ .num = .{ .int = try std.fmt.parseInt(i32, num, 0) } },
         .uint => .{ .num = .{ .uint = try std.fmt.parseInt(u32, num, 0) } },

@@ -7,9 +7,10 @@ test {
     _ = glsl.parser.Token;
     _ = glsl.parser.Tokenizer;
     _ = glsl.parser.operator;
+    _ = glsl.parser.Scope;
+    _ = glsl.parser.Expr;
     _ = glsl.parser.Func;
     _ = glsl.parser.@"var";
-    _ = glsl.parser.Scope;
     _ = glsl.ir;
     _ = glsl.ir.operation;
     _ = glsl.ir.Block;
