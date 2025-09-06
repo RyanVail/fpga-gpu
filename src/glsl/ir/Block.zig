@@ -72,7 +72,7 @@ test read {
         .{ .num = .{ .int = 5 } },
         .{ .alloca = .{ .primitive = .vec3 } },
         .{ .num = .{ .vec3 = @splat(5.0) } },
-        .{ .branch = .{ .label = 0 } },
+        .{ .branch = 0 },
 
         .{ .label = 0 },
         .{ .num = .{ .vec3 = @splat(2.0) } },

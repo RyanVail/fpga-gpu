@@ -32,10 +32,6 @@ pub const Inst = union(enum) {
         fn_name: []const u8,
     };
 
-    pub const Branch = struct {
-        label: Label.Id,
-    };
-
     pub const CondBranch = struct {
         value: Val.Id,
         on_true: Label.Id,
@@ -107,7 +103,7 @@ pub const Inst = union(enum) {
     expr: operation.Op,
     label: Label.Id,
     call: Call,
-    branch: Branch,
+    branch: Label.Id,
     cond_branch: CondBranch,
     ret: Val.Id,
     num: Constant,

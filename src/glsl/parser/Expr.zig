@@ -22,7 +22,7 @@ pub fn parse(
     iter: *Tokenizer,
     scope: *const Scope,
     writer: *InstWriter,
-) !?Val.Id {
+) !Val.Id {
     const toks = try collectToks(allocator, iter);
     defer allocator.free(toks);
 
