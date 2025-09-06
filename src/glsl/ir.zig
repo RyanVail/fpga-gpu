@@ -98,15 +98,19 @@ pub const Inst = union(enum) {
     };
 
     alloca: Type,
+    free: Val.Id,
+
     load: Val.Id,
     store: Store,
+
+    num: Constant,
     expr: operation.Op,
-    label: Label.Id,
+
+    ret: Val.Id,
     call: Call,
+    label: Label.Id,
     branch: Label.Id,
     cond_branch: CondBranch,
-    ret: Val.Id,
-    num: Constant,
 
     pub fn isBranch(self: Self) bool {
         return switch (self) {
