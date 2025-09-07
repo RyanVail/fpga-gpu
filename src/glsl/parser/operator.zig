@@ -215,6 +215,36 @@ pub const Op = enum {
             => .@"12",
         };
     }
+
+    pub fn isAssign(self: Self) bool {
+        return switch (self) {
+            .assign,
+            .add_assign,
+            .sub_assign,
+            .mul_assign,
+            .div_assign,
+            .mod_assign,
+            .bxor_assign,
+            .bor_assign,
+            .band_assign,
+            => true,
+            else => false,
+        };
+    }
+
+    pub fn assignBase(self: Self) ?Self {
+        return switch (self) {
+            .add_assign => .add,
+            .sub_assign => .sub,
+            .mul_assign => .mul,
+            .div_assign => .div,
+            .mod_assign => .mod,
+            .bxor_assign => .bxor,
+            .bor_assign => .bor,
+            .band_assign => .band,
+            else => null,
+        };
+    }
 };
 
 const expectEqual = std.testing.expectEqual;

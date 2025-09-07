@@ -15,6 +15,8 @@ variables: std.StringHashMap(Var.Id),
 
 const State = enum {
     start,
+    var_def,
+    assign,
     if_expr,
     else_expr,
 };
@@ -56,46 +58,95 @@ pub fn parse(
                     return error.ExpectedSemicolon;
                 }
             },
-            .keyword_const, .identifier => {
+            .keyword_const => {
                 iter.back(tok);
-                const id = try @"var".parse(
-                    allocator,
-                    iter,
-                    &self,
-                    writer,
-                ) orelse {
-                    // TODO: Handle this.
-                    unreachable;
-                };
-
-                tok = try iter.next();
-                if (tok.tag == .semicolon) {
-                    tok = try iter.next();
-                    continue :state .start;
-                } else if (tok.tag != .equal) {
-                    return error.ExpectedEqualSign;
-                }
-
-                const val = try Expr.parse(allocator, iter, &self, writer);
-                _ = try writer.write(allocator, .{ .store = .{
-                    .dest = id,
-                    .source = val,
-                } });
-
-                tok = try iter.next();
-                if (tok.tag != .semicolon) {
-                    return error.ExpectedSemicolon;
-                }
-
-                tok = try iter.next();
-                continue :state .start;
+                continue :state .var_def;
             },
-            .l_brace => break :state,
-            .r_brace, .eof => break :state,
+            .identifier => {
+                iter.back(tok);
+                continue :state .var_def;
+            },
+            .l_brace, .r_brace, .eof => break :state,
             else => |t| {
                 std.debug.print("found: {}\n", .{t});
                 unreachable;
             },
+        },
+        .var_def => {
+            iter.back(tok);
+            const id = try @"var".parse(
+                allocator,
+                iter,
+                &self,
+                writer,
+            ) orelse {
+                iter.back(tok);
+                continue :state .assign;
+            };
+
+            tok = try iter.next();
+            if (tok.tag == .semicolon) {
+                tok = try iter.next();
+                continue :state .start;
+            } else if (tok.tag != .equal) {
+                return error.ExpectedEqualSign;
+            }
+
+            const val = try Expr.parse(allocator, iter, &self, writer);
+            _ = try writer.write(allocator, .{ .store = .{
+                .dest = id,
+                .source = val,
+            } });
+
+            tok = try iter.next();
+            if (tok.tag != .semicolon) {
+                return error.ExpectedSemicolon;
+            }
+
+            tok = try iter.next();
+            continue :state .start;
+        },
+        .assign => {
+            tok = try iter.next();
+            if (tok.tag != .identifier) {
+                return error.ExpectedIdentifier;
+            }
+
+            const str = iter.getSrc(tok);
+            const id = self.getVar(str) orelse {
+                return error.UndefinedIdentifier;
+            };
+
+            tok = try iter.next();
+            const op = parser.Op.read(tok) orelse {
+                return error.ExpectedAssign;
+            };
+
+            const v0 = try Expr.parse(allocator, iter, &self, writer);
+            if (op.assignBase()) |base| {
+                const v1 = try writer.write(
+                    allocator,
+                    .{ .expr = .initDual(base, id, v0) },
+                );
+
+                _ = try writer.write(allocator, .{ .store = .{
+                    .dest = id,
+                    .source = v1,
+                } });
+            } else {
+                _ = try writer.write(allocator, .{ .store = .{
+                    .dest = id,
+                    .source = v0,
+                } });
+            }
+
+            tok = try iter.next();
+            if (tok.tag != .semicolon) {
+                return error.ExpectedSemicolon;
+            }
+
+            tok = try iter.next();
+            continue :state .start;
         },
         .if_expr => switch (tok.tag) {
             .l_paren => {
@@ -145,7 +196,6 @@ pub fn parse(
                     if_end = null;
                 }
 
-                tok = try iter.next();
                 continue :state .start;
             },
             else => return error.ExpectedCondExpr,
@@ -155,13 +205,14 @@ pub fn parse(
                 try parse(allocator, iter, &self, labels, writer);
                 _ = try writer.write(allocator, .{ .label = if_end.? });
 
+                tok = try iter.next();
                 continue :state .start;
             },
             .keyword_if => {
                 tok = try iter.next();
                 continue :state .if_expr;
             },
-            else => continue :state .start,
+            else => unreachable,
         },
     }
 
@@ -470,4 +521,140 @@ test "var def within if" {
     defer debug_allocator.free(slice);
 
     try expectEqualSlices(ir.Inst, &expected, slice);
+}
+
+test "var assign" {
+    const expected = [_]ir.Inst{
+        .{ .alloca = .{ .primitive = .int } },
+        .{ .num = .{ .int = 1 } },
+        .{ .num = .{ .int = 4 } },
+        .{ .expr = .{ .add = .{ 1, 2 } } },
+        .{ .store = .{ .dest = 0, .source = 3 } },
+        .{ .free = 0 },
+    };
+
+    var iter = Tokenizer.from(
+        \\int a;
+        \\a = 1 + 4;
+    );
+
+    var writer = InstWriter{};
+    defer writer.buffer.deinit(debug_allocator);
+
+    var labels: u32 = 0;
+    const id = try parse(debug_allocator, &iter, null, &labels, &writer);
+    _ = id;
+
+    const slice = try writer.buffer.toOwnedSlice(debug_allocator);
+    defer debug_allocator.free(slice);
+
+    try expectEqualSlices(ir.Inst, &expected, slice);
+}
+
+test "var assign within if" {
+    const expected = [_]ir.Inst{
+        .{ .alloca = .{ .primitive = .int } },
+        .{ .alloca = .{ .primitive = .int } },
+        .{ .num = .{ .int = 3 } },
+        .{ .store = .{ .dest = 1, .source = 2 } },
+        .{ .num = .{ .int = 2 } },
+        .{ .expr = .{ .gt = .{ 1, 4 } } },
+        .{ .cond_branch = .{ .value = 5, .on_true = 0, .on_false = 1 } },
+        .{ .label = 0 },
+        .{ .store = .{ .dest = 0, .source = 1 } },
+        .{ .branch = 2 },
+        .{ .label = 1 },
+        .{ .num = .{ .int = 0 } },
+        .{ .store = .{ .dest = 0, .source = 11 } },
+        .{ .label = 2 },
+        .{ .free = 1 },
+        .{ .free = 0 },
+    };
+
+    var iter = Tokenizer.from(
+        \\int a;
+        \\int b = 3;
+        \\if (b > 2) {
+        \\    a = b;
+        \\} else {
+        \\    a = 0;
+        \\}
+    );
+
+    var writer = InstWriter{};
+    defer writer.buffer.deinit(debug_allocator);
+
+    var labels: u32 = 0;
+    const id = try parse(debug_allocator, &iter, null, &labels, &writer);
+    _ = id;
+
+    const slice = try writer.buffer.toOwnedSlice(debug_allocator);
+    defer debug_allocator.free(slice);
+
+    try expectEqualSlices(ir.Inst, &expected, slice);
+}
+
+test "var out of scope" {
+    var iter = Tokenizer.from(
+        \\if (1 == 1) {
+        \\    int mask;
+        \\} else {}
+        \\mask = 4
+    );
+
+    var writer = InstWriter{};
+    defer writer.buffer.deinit(debug_allocator);
+
+    var labels: u32 = 0;
+    try expectEqual(
+        error.UndefinedIdentifier,
+        parse(debug_allocator, &iter, null, &labels, &writer),
+    );
+}
+
+test "var plus equal" {
+    const expected = [_]ir.Inst{
+        .{ .alloca = .{ .primitive = .int } },
+        .{ .num = .{ .int = 1 } },
+        .{ .store = .{ .dest = 0, .source = 1 } },
+        .{ .num = .{ .int = 1 } },
+        .{ .num = .{ .int = 2 } },
+        .{ .expr = .{ .mul = .{ 3, 4 } } },
+        .{ .expr = .{ .add = .{ 0, 5 } } },
+        .{ .store = .{ .dest = 0, .source = 6 } },
+        .{ .free = 0 },
+    };
+
+    var iter = Tokenizer.from(
+        \\int a = 1;
+        \\a += (1 * 2);
+    );
+
+    var writer = InstWriter{};
+    defer writer.buffer.deinit(debug_allocator);
+
+    var labels: u32 = 0;
+    const id = try parse(debug_allocator, &iter, null, &labels, &writer);
+    _ = id;
+
+    const slice = try writer.buffer.toOwnedSlice(debug_allocator);
+    defer debug_allocator.free(slice);
+
+    try expectEqualSlices(ir.Inst, &expected, slice);
+}
+
+test "assign no expression" {
+    var iter = Tokenizer.from(
+        \\int a = 3;
+        \\a += ;
+    );
+
+    var writer = InstWriter{};
+    defer writer.buffer.deinit(debug_allocator);
+
+    var labels: u32 = 0;
+    try expectEqual(
+        error.ExpectedValue,
+        parse(debug_allocator, &iter, null, &labels, &writer),
+    );
 }
