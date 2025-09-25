@@ -52,7 +52,7 @@ module dcache #(
 );
     `declare_dcache_line(addr_width, line_width);
 
-    dcache_line_s [depth-1:0] cache = 0;
+    dcache_line_s [depth-1:0] cache;
 
     // The set this cache line falls within.
     localparam set_width = $clog2(depth);

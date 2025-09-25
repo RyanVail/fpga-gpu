@@ -1,4 +1,7 @@
+tests/__pycache__/
+sim_build/
 .zig-cache/
 zig-out/
+build/
 *.o
 *.swp
