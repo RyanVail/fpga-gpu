@@ -75,7 +75,7 @@ module sdram_ctrl #(
 
     initial begin
         cmd = SDRAM_CMD_NOP;
-        init_cnt = 1;
+        init_cnt = init_cycles[$clog2(init_cycles)-1:0];
         init_state = 0;
         state = 0;
     end
@@ -173,36 +173,33 @@ module sdram_ctrl #(
         casez (init_state)
             0: begin
                 cmd <= SDRAM_CMD_NOP;
-                init_cnt <= init_cnt + 1;
+                init_cnt <= init_cnt - 1;
                 init_state <= (init_cnt == 0) ? 1 : 0;
             end 1: begin
                 cmd <= SDRAM_CMD_PRECHARGE;
                 init_state <= 2;
-                init_cnt <= 0;
 
                 // Precharge all
                 sdram_a[10] <= 1;
             end 2: begin
                 cmd <= SDRAM_CMD_NOP;
                 init_state <= 8;
-                init_cnt <= 0;
             end 8: begin
                 cmd <= SDRAM_CMD_REFRESH;
                 init_state <= 3;
+                init_cnt <= t_rp_lat_val;
             end 3: begin
                 cmd <= SDRAM_CMD_NOP;
-                // TODO: Do this a better way.
-                init_cnt <= init_cnt + 1;
-                init_state <= init_cnt[4] ? 4 : 3;
+                init_cnt <= init_cnt - 1;
+                init_state <= (init_cnt == 0) ? 4 : 3;
             end 4: begin
                 cmd <= SDRAM_CMD_REFRESH;
                 init_state <= 5;
-                init_cnt <= 0;
+                init_cnt <= t_rp_lat_val;
             end 5: begin
                 cmd <= SDRAM_CMD_NOP;
-                // TODO: Do this a better way.
-                init_cnt <= init_cnt + 1;
-                init_state <= init_cnt[4] ? 6 : 5;
+                init_state <= (init_cnt == 0) ? 6 : 5;
+                init_cnt <= init_cnt - 1;
             end 6: begin
                 cmd <= SDRAM_CMD_LOADMODE;
 

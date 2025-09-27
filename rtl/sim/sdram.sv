@@ -187,13 +187,6 @@ module sdram_sim #(
     assign this_read = read_fifo[0];
     always_ff @(posedge clk_i) begin
         if (this_read.valid) begin
-            /*$info(
-                "read done [%d %d] = %d",
-                this_read.bank,
-                this_read.col,
-                loaded[this_read.bank][this_read.col]
-            );*/
-
             `assertEqual(1, is_loaded[this_read.bank]);
         end
 
@@ -219,13 +212,6 @@ module sdram_sim #(
     assign this_write = write_fifo[0];
     always_ff @(posedge clk_i) begin
         if (this_write.valid) begin
-            /*$info(
-                "write done [%d %d] = %d",
-                this_write.bank,
-                this_write.col,
-                this_write.data
-            );*/
-
             `assertEqual(1, is_loaded[this_write.bank]);
             loaded[this_write.bank][this_write.col] <= this_write.data;
         end
