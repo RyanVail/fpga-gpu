@@ -242,6 +242,8 @@ module sdram_ctrl #(
         end else if (state == STATE_READ_WRITE) begin
             reading <= 0;
             reading_issued <= reading;
+        end else if (r_valid_o) begin
+            reading_issued <= 0;
         end
 
         if (enabled_o) casez (state)

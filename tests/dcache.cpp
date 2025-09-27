@@ -19,7 +19,7 @@ static void pulse(Vdcache* dut) {
     dut->clk_i = 0;
 }
 
-static void write_read(VerilatedContext* contextp, Vdcache* dut) {
+static void write_read(Vdcache* dut) {
     init(dut);
 
     dut->r_valid_i = 0;
@@ -42,7 +42,7 @@ static void write_read(VerilatedContext* contextp, Vdcache* dut) {
     dut->final();
 }
 
-static void dirty_write(VerilatedContext* contextp, Vdcache* dut) {
+static void dirty_write(Vdcache* dut) {
     init(dut);
 
     dut->r_valid_i = 0;
@@ -70,7 +70,7 @@ static void dirty_write(VerilatedContext* contextp, Vdcache* dut) {
 
 // TODO: This should also be testing for uncached writes and ejections too but
 // that would require more simulated state within C++.
-static void rand_cached_writes(VerilatedContext* contextp, Vdcache* dut) {
+static void rand_cached_writes(Vdcache* dut) {
     init(dut);
 
     static_assert(line_width == 64);
@@ -89,7 +89,7 @@ static void rand_cached_writes(VerilatedContext* contextp, Vdcache* dut) {
 
     pulse(dut);
 
-    uint64_t values[max_addr];
+    uint64_t values[max_addr + 1];
 
     // Initing the values.
     dut->w_valid_i = 1;
@@ -147,9 +147,9 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     Vdcache* dut = new Vdcache{contextp};
-    write_read(contextp, dut);
-    dirty_write(contextp, dut);
-    rand_cached_writes(contextp, dut);
+    write_read(dut);
+    dirty_write(dut);
+    rand_cached_writes(dut);
 
     delete dut;
     delete contextp;
