@@ -57,8 +57,7 @@ module mem_ctrl #(
     logic dcache_r_miss;
     logic [line_width-1:0] dcache_read;
 
-    // TODO: Finish this.
-    wire dcache_dirty = 1;
+    wire dcache_dirty = w_valid_i;
 
     wire [addr_width-1:0] dcache_addr = (r_valid_i | w_valid_i)
         ? addr_i
