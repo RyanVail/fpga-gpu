@@ -1,25 +1,41 @@
+#define DUT Vdcache
+
+#define _STR(a) #a
+#define STR(a) _STR(a)
+
 #include "Vdcache.h"
 #include "verilated.h"
+#include "verilated_fst_c.h"
 #include <cassert>
 #include <cstdint>
 #include <random>
+
+static uint32_t ns = 0;
+static VerilatedFstC* tfp;
 
 static constexpr uint32_t addr_width = 16;
 static constexpr uint32_t line_width = 64;
 static constexpr uint32_t depth = 64;
 
-static void init(Vdcache* dut) {
+static void init(DUT* dut) {
     dut->clk_i = 0;
 }
 
-static void pulse(Vdcache* dut) {
+static void pulse(DUT* dut) {
+    if (dut->traceCapable) tfp->dump(ns);
+    ns++;
+
     dut->eval();
     dut->clk_i = 1;
+
+    if (dut->traceCapable) tfp->dump(ns);
+    ns++;
+
     dut->eval();
     dut->clk_i = 0;
 }
 
-static void write_read(Vdcache* dut) {
+static void write_read(DUT* dut) {
     init(dut);
 
     dut->r_valid_i = 0;
@@ -36,13 +52,13 @@ static void write_read(Vdcache* dut) {
     dut->r_valid_i = 1;
 
     pulse(dut);
-    assert(dut->r_valid_o == 1);
+    assert(dut->r_valid_o);
     assert(dut->read_o == 25);
 
     dut->final();
 }
 
-static void dirty_write(Vdcache* dut) {
+static void dirty_write(DUT* dut) {
     init(dut);
 
     dut->r_valid_i = 0;
@@ -57,20 +73,20 @@ static void dirty_write(Vdcache* dut) {
     dut->write_i = 25;
     dut->dirty_i = 0;
 
-    assert(dut->ejected_valid_o == 0);
+    assert(!dut->ejected_valid_o);
 
     pulse(dut);
 
     dut->w_valid_i = 0;
 
-    assert(dut->ejected_valid_o == 1);
-    assert(dut->ejected_addr_o == 0);
+    assert(dut->ejected_valid_o);
+    assert(!dut->ejected_addr_o);
     assert(dut->ejected_o == 5);
 }
 
 // TODO: This should also be testing for uncached writes and ejections too but
 // that would require more simulated state within C++.
-static void rand_cached_writes(Vdcache* dut) {
+static void rand_cached_writes(DUT* dut) {
     init(dut);
 
     static_assert(line_width == 64);
@@ -111,7 +127,7 @@ static void rand_cached_writes(Vdcache* dut) {
         const size_t addr = addr_dist(gen);
         const uint64_t value = value_dist(gen);
 
-        assert(dut->ejected_valid_o == 0);
+        assert(!dut->ejected_valid_o);
 
         values[addr] = value;
 
@@ -137,7 +153,7 @@ static void rand_cached_writes(Vdcache* dut) {
         pulse(dut);
         dut->r_valid_i = 0;
 
-        assert(dut->r_valid_o == 1);
+        assert(dut->r_valid_o);
         assert(dut->read_o == values[i]);
     }
 }
@@ -146,10 +162,23 @@ int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
 
-    Vdcache* dut = new Vdcache{contextp};
+    DUT* dut = new DUT{contextp};
+
+    if (dut->traceCapable) {
+        Verilated::traceEverOn(true);
+        tfp = new VerilatedFstC;
+        dut->trace(tfp, -1);
+        tfp->open("build/waves/" STR(DUT) ".fst");
+    }
+
     write_read(dut);
     dirty_write(dut);
     rand_cached_writes(dut);
+
+    if (dut->traceCapable) {
+        pulse(dut);
+        tfp->close();
+    }
 
     delete dut;
     delete contextp;

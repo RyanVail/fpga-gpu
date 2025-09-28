@@ -10,8 +10,6 @@
 #include <cstdint>
 #include <random>
 
-typedef DUT Vsdram;
-
 static uint32_t ns = 0;
 static VerilatedFstC* tfp;
 
@@ -37,7 +35,7 @@ static void pulse(DUT* dut) {
     dut->clk_i = 0;
 }
 
-static void write_read(Vsdram* dut) {
+static void write_read(DUT* dut) {
     init(dut);
 
     dut->addr_i = 0;
@@ -46,37 +44,37 @@ static void write_read(Vsdram* dut) {
 
     pulse(dut);
 
-    assert(dut->data_ready_o == 1);
-    assert(dut->r_valid_o == 0);
+    assert(dut->data_ready_o);
+    assert(!dut->r_valid_o);
     dut->w_valid_i = 1;
     dut->write_i = 123;
     dut->addr_i = 0;
 
     pulse(dut);
 
-    assert(dut->data_ready_o == 0);
+    assert(!dut->data_ready_o);
     dut->w_valid_i = 0;
     dut->addr_i = 0;
 
-    while (dut->data_ready_o == 0) pulse(dut);
+    while (!dut->data_ready_o) pulse(dut);
     dut->r_valid_i = 1;
 
     pulse(dut);
-    assert(dut->data_ready_o == 0);
+    assert(!dut->data_ready_o);
     dut->r_valid_i = 0;
 
-    while (dut->r_valid_o == 0) pulse(dut);
+    while (!dut->r_valid_o) pulse(dut);
     assert(dut->read_o == 123);
 
     while (!dut->data_ready_o) pulse(dut);
 }
 
-static void rand_writes(Vsdram* dut) {
+static void rand_writes(DUT* dut) {
     init(dut);
 
     constexpr uint16_t max_value = UINT16_MAX;
-    constexpr size_t max_addr = 256;
-    constexpr uint32_t iterations = max_addr * 2;
+    constexpr size_t max_addr = 255;
+    constexpr size_t iterations = max_addr * 2;
 
     // Creating the rng.
     std::mt19937 gen;
@@ -90,7 +88,7 @@ static void rand_writes(Vsdram* dut) {
     uint16_t values[max_addr + 1];
 
     // Initing the values.
-    for (size_t i = 0; i < max_addr; i++) {
+    for (size_t i = 0; i <= max_addr; i++) {
         const uint16_t value = value_dist(gen);
 
         dut->w_valid_i = 1;
@@ -102,13 +100,13 @@ static void rand_writes(Vsdram* dut) {
         pulse(dut);
         dut->w_valid_i = 0;
 
-        while (dut->data_ready_o == 0) pulse(dut);
+        while (!dut->data_ready_o) pulse(dut);
     }
 
     dut->w_valid_i = 0;
 
     // Randomly writing.
-    for (uint32_t i = 0; i < iterations; i++) {
+    for (size_t i = 0; i < iterations; i++) {
         const size_t addr = addr_dist(gen);
         const uint16_t value = value_dist(gen);
 
@@ -121,13 +119,13 @@ static void rand_writes(Vsdram* dut) {
         pulse(dut);
         dut->w_valid_i = 0;
 
-        while (dut->data_ready_o == 0) pulse(dut);
+        while (!dut->data_ready_o) pulse(dut);
     }
 
     dut->w_valid_i = 0;
 
     // Reading back the values.
-    for (size_t i = 0; i < max_addr; i++) {
+    for (size_t i = 0; i <= max_addr; i++) {
         dut->addr_i = i;
         dut->r_valid_i = 1;
 
@@ -137,7 +135,7 @@ static void rand_writes(Vsdram* dut) {
         while (!dut->r_valid_o) pulse(dut);
         assert(dut->read_o == values[i]);
 
-        while (dut->data_ready_o == 0) pulse(dut);
+        while (!dut->data_ready_o) pulse(dut);
     }
 }
 
@@ -145,7 +143,7 @@ int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
 
-    Vsdram* dut = new Vsdram{contextp};
+    DUT* dut = new DUT{contextp};
 
     if (dut->traceCapable) {
         Verilated::traceEverOn(true);
@@ -154,8 +152,8 @@ int main(int argc, char** argv) {
         tfp->open("build/waves/" STR(DUT) ".fst");
     }
 
-    assert(dut->enabled_o == 0);
-    while (dut->enabled_o == 0) pulse(dut);
+    assert(!dut->enabled_o);
+    while (!dut->enabled_o) pulse(dut);
     while (!dut->data_ready_o) pulse(dut);
 
     write_read(dut);
