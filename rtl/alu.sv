@@ -172,7 +172,11 @@ module alu #(
     end
 
     always @(posedge clk_i) begin
-        if (op == ALU_OP_MEM_WRITE) begin
+        if (reset_i) begin
+            w_valid_o <= 0;
+            w_addr <= 'X;
+            w_write <= 'X;
+        end else if (op == ALU_OP_MEM_WRITE) begin
             w_valid_o <= 1;
 
             w_write <= reg_value_1;
@@ -212,20 +216,31 @@ module alu #(
         end
     end
 
+    wire is_signed = inst.data.triple_reg.is_signed;
+
+    wire [i_width-1:0] i_value_0 = {
+        {width{is_signed & reg_value_0[width-1]}},
+        reg_value_0[width-1:0]
+    };
+
+    wire [i_width-1:0] i_value_1 = {
+        {width{is_signed & reg_value_1[width-1]}},
+        reg_value_1[width-1:0]
+    };
+
+    wire [i_width-1:0] i_value_2 = {
+        {width{is_signed & reg_value_2[width-1]}},
+        reg_value_2[width-1:0]
+    };
+
     always_comb begin
         casez (op)
             ALU_OP_ADD: begin
-                i_result = i_width'(reg_value_0)
-                    + i_width'(reg_value_1)
-                    + i_width'(reg_value_2);
+                i_result = i_value_0 + i_value_1 + i_value_2;
             end ALU_OP_SUB: begin
-                i_result = i_width'(reg_value_0)
-                    - i_width'(reg_value_1)
-                    - i_width'(reg_value_2);
+                i_result = i_value_0 - i_value_1 - i_value_2;
             end ALU_OP_MUL: begin
-                i_result = i_width'(reg_value_0)
-                    * i_width'(reg_value_1)
-                    + i_width'(reg_value_2);
+                i_result = i_value_0 * i_value_1 + i_value_2;
             end ALU_OP_RCP: begin
                 // TODO: Finish.
                 i_result = i_width'(regs[`NUM_REGS-2]);

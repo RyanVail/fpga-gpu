@@ -108,7 +108,7 @@ static Inst dual(Op op, Reg a, Reg b, Shift shift) {
     return triple(op, a, b, Reg::ZERO, false, false, shift);
 }
 
-static Inst neg(Reg a, bool is_signed, bool set_flags) {
+static Inst neg(Reg a, bool is_signed = true, bool set_flags = false) {
     return dual(Op::SUB, Reg::ZERO, a, is_signed, set_flags);
 }
 

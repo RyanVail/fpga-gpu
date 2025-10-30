@@ -228,6 +228,71 @@ static void write_offset(DUT* dut) {
     assert(dut->w_write == value); 
 }
 
+static void add_no_shift(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    assert(dut->w_valid_o == 0);
+
+    const size_t len = 5;
+    const uint32_t values[len] = { 0xEF9, 0xA2FD, 0x16B2, 0x18F, 0xC2A7 };
+    for (size_t i = 0; i < len; i++) {
+        dut->inst_i = load(values[i]);
+        pulse(dut);
+    }
+
+    dut->inst_i = triple(
+        Op::ADD,
+        static_cast<Reg>(len - 1), Reg::ZERO, Reg::ZERO,
+        false, false,
+        (Shift) { .right = false, .bits = 0 },
+        Cond::ALWAYS,
+        false
+    );
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, static_cast<Reg>(len - 1));
+    pulse(dut);
+
+    assert(dut->w_valid_o);
+    assert(dut->w_addr == 0);
+    assert(dut->w_write == values[0]);
+}
+
+static void neg_mul_shift(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    assert(dut->w_valid_o == 0);
+
+    dut->inst_i = load(20);
+    pulse(dut);
+
+    dut->inst_i = neg(Reg::R0, true);
+    pulse(dut);
+
+    dut->inst_i = load(10);
+    pulse(dut);
+
+    const Shift shift = { .right = true, .bits = 3 };
+    dut->inst_i = triple(
+        Op::MUL,
+        Reg::R0, Reg::R1, Reg::ZERO,
+        true, false,
+        shift
+    );
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0);
+    pulse(dut);
+
+    assert(dut->w_valid_o);
+    assert(dut->w_addr == 0);
+    assert(dut->w_write == -25);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -248,6 +313,8 @@ int main(int argc, char** argv) {
     fmadd(dut);
     mul_high(dut);
     write_offset(dut);
+    add_no_shift(dut);
+    neg_mul_shift(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
