@@ -196,7 +196,7 @@ module sdram_sim #(
 
     assign dq_io = (this_read.valid)
         ? loaded[this_read.bank][this_read.col]
-        : bus_width'('bZ);
+        : {bus_width{1'bZ}};
 
     typedef struct packed {
         logic valid;

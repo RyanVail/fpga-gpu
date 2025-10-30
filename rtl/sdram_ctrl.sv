@@ -92,7 +92,7 @@ module sdram_ctrl #(
 
     assign sdram_addr = addr_i;
 
-    assign dq_io = (cmd == SDRAM_CMD_WRITE) ? write_data : bus_width ** {1'bZ};
+    assign dq_io = (cmd == SDRAM_CMD_WRITE) ? write_data : {bus_width{1'bZ}};
     assign read_o = dq_io;
 
     // The bank and column currently being operated on.
