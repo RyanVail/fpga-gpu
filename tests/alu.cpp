@@ -142,6 +142,22 @@ static void cond_branch(DUT* dut) {
     assert(dut->pc == 1 + 100 + 3 - 20);
 }
 
+static void cond_load(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(5);
+    pulse(dut);
+
+    dut->inst_i = load(613, Cond::EQZ);
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0);
+    pulse(dut);
+    assert(dut->w_write == 5);
+}
+
 static void fmadd(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
@@ -228,6 +244,7 @@ int main(int argc, char** argv) {
     eqz_flag(dut);
     neg_flag(dut);
     cond_branch(dut);
+    cond_load(dut);
     fmadd(dut);
     mul_high(dut);
     write_offset(dut);
