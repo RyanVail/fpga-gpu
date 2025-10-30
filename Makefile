@@ -1,3 +1,5 @@
+MAKEFLAGS += --silent
+
 TEST_DIR  := tests/
 BUILD_DIR := build/
 RTL_DIR   := rtl/
@@ -10,6 +12,8 @@ VERILATOR  ?= verilator
 COMP_FLAGS := -Wall \
 			 --MMD \
 			 --MP \
+             --quiet \
+             -MAKEFLAGS --quiet \
 			 --cc --exe --build \
 			 -j 0 \
 			 -I$(RTL_DIR) -I$(RTL_SIM)
@@ -20,34 +24,39 @@ ifeq ($(WAVES), 1)
 	COMP_FLAGS += $(WAVE_FLAGS)
 endif
 
-all: build run
+all: build_tests .WAIT run_tests
 
-build: $(TESTS)
+TEST_BUILDS := $(foreach f, $(basename $(notdir $(TESTS))), build_test_$(f))
+build_tests: $(TEST_BUILDS)
+
+create_test_dir:
 	mkdir -p build
 	mkdir -p build/waves
-	@for src in $(basename $(notdir $(TESTS))); do \
-		rtl_src=""; \
-		if [ -f "$(RTL_DIR)$$src.sv" ]; then \
-			rtl_src="$(RTL_DIR)$$src.sv"; \
-		elif [ -f "$(RTL_TEST)$$src.sv" ]; then \
-			rtl_src="$(RTL_TEST)$$src.sv"; \
-		else \
-			echo "Error: No RTL found for $$src in $(RTL_DIR) or $(RTL_TEST)"; \
-			exit 1; \
-		fi; \
-		echo "Compiling test $$src with RTL $$rtl_src"; \
-		$(VERILATOR) \
-			--Mdir $(BUILD_DIR)$$src \
-			$(COMP_FLAGS) \
-			$$rtl_src \
-			$(TEST_DIR)$$src.cpp; \
-	done
 
-run: $(TESTS)
-	@for src in $(basename $(notdir $(TESTS))); do \
-		echo "Running test $$src"; \
-		$(BUILD_DIR)$$src/V$$src $(SIM_FLAGS); \
-	done
+build_test_%: create_test_dir
+	rtl_src=""; \
+	if [ -f "$(RTL_DIR)$*.sv" ]; then \
+		rtl_src="$(RTL_DIR)$*.sv"; \
+	elif [ -f "$(RTL_TEST)$*.sv" ]; then \
+		rtl_src="$(RTL_TEST)$*.sv"; \
+	else \
+		echo "Error: No RTL found for $* in $(RTL_DIR) or $(RTL_TEST)"; \
+		exit 1; \
+	fi; \
+	echo "Compiling test $*"; \
+	$(VERILATOR) \
+		--Mdir $(BUILD_DIR)$* \
+		$(COMP_FLAGS) \
+		$$rtl_src \
+		$(TEST_DIR)$*.cpp; \
+
+TEST_RUNS := $(foreach f, $(basename $(notdir $(TESTS))), run_test_$(f))
+run_tests: $(TEST_RUNS)
+
+run_test_%:
+	echo "Running test $*"; \
+	$(BUILD_DIR)$*/V$* $(SIM_FLAGS); \
+	echo "Finished test $*"; \
 
 clean:
 	@rm -rf $(BUILD_DIR)
