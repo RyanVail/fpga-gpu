@@ -7,9 +7,10 @@ enum Op : uint8_t {
     SUB = 0b0001,
     MUL = 0b0010,
     RCP = 0b0011,
-    LOAD = 0b0100,
-    BRANCH = 0b0101,
-    MEM_WRITE = 0b0110,
+    CLAMP = 0b0100,
+    LOAD = 0b0101,
+    BRANCH = 0b0110,
+    MEM_WRITE = 0b0111,
 };
 
 enum Cond : uint8_t {

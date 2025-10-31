@@ -16,9 +16,10 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_SUB = 4'b0001,
     ALU_OP_MUL = 4'b0010,
     ALU_OP_RCP = 4'b0011,
-    ALU_OP_LOAD = 4'b0100,
-    ALU_OP_BRANCH = 4'b0101,
-    ALU_OP_MEM_WRITE = 4'b0110
+    ALU_OP_CLAMP = 4'b0100,
+    ALU_OP_LOAD = 4'b0101,
+    ALU_OP_BRANCH = 4'b0110,
+    ALU_OP_MEM_WRITE = 4'b0111
 } alu_op_e;
 
 `define ALU_SHIFT_WIDTH 1
@@ -244,6 +245,24 @@ module alu #(
             end ALU_OP_RCP: begin
                 // TODO: Finish.
                 i_result = i_width'(regs[`NUM_REGS-2]);
+            end ALU_OP_CLAMP: begin
+                if (is_signed) begin
+                    if (signed'(i_value_0) < signed'(i_value_1)) begin
+                        i_result = i_value_0;
+                    end else if (signed'(i_value_1) < signed'(i_value_2)) begin
+                        i_result = i_value_2;
+                    end else begin
+                        i_result = i_value_1;
+                    end
+                end else begin
+                    if (i_value_0 > i_value_1) begin
+                        i_result = i_value_0;
+                    end else if (i_value_1 > i_value_2) begin
+                        i_result = i_value_2;
+                    end else begin
+                        i_result = i_value_1;
+                    end
+                end
             end
 
             ALU_OP_LOAD: begin

@@ -293,6 +293,114 @@ static void neg_mul_shift(DUT* dut) {
     assert(dut->w_write == -25);
 }
 
+static void mul_shift(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    assert(dut->w_valid_o == 0);
+
+    dut->inst_i = load(234);
+    pulse(dut);
+
+    dut->inst_i = load(104);
+    pulse(dut);
+
+    const Shift shift = { .right = true, .bits = 3 };
+    dut->inst_i = triple(
+        Op::MUL,
+        Reg::R0, Reg::R1, Reg::ZERO,
+        false, false,
+        shift
+    );
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0);
+    pulse(dut);
+
+    assert(dut->w_valid_o);
+    assert(dut->w_addr == 0);
+    assert(dut->w_write == 3042);
+}
+
+static void cond_add(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    assert(dut->w_valid_o == 0);
+
+    dut->inst_i = load(234);
+    pulse(dut);
+
+    dut->inst_i = load(104);
+    pulse(dut);
+
+    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, false, false, Cond::EQZ);
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0);
+    pulse(dut);
+
+    assert(dut->w_valid_o);
+    assert(dut->w_addr == 0);
+    assert(dut->w_write == 104);
+}
+
+static void clamp_unsigned_min(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(500); pulse(dut);
+    dut->inst_i = load(250); pulse(dut);
+    dut->inst_i = load(265); pulse(dut);
+    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R1, Reg::R2); pulse(dut);
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == 265);
+}
+
+static void clamp_unsigned_max(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(600); pulse(dut);
+    dut->inst_i = load(2000); pulse(dut);
+    dut->inst_i = load(0); pulse(dut);
+    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R1, Reg::R2); pulse(dut);
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == 600);
+}
+
+static void clamp_unsigned_mid(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(600); pulse(dut);
+    dut->inst_i = load(2000); pulse(dut);
+    dut->inst_i = load(0); pulse(dut);
+    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R1, Reg::R2); pulse(dut);
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == 600);
+}
+
+static void clamp_signed_min(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(20); pulse(dut);
+    dut->inst_i = load(999); pulse(dut);
+    dut->inst_i = neg(Reg::R0); pulse(dut);
+    dut->inst_i = load(20); pulse(dut);
+    dut->inst_i = neg(Reg::R0); pulse(dut);
+    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R2, Reg::R4); pulse(dut);
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == -20);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -315,6 +423,12 @@ int main(int argc, char** argv) {
     write_offset(dut);
     add_no_shift(dut);
     neg_mul_shift(dut);
+    mul_shift(dut);
+    cond_add(dut);
+    clamp_unsigned_min(dut);
+    clamp_unsigned_max(dut);
+    clamp_unsigned_min(dut);
+    clamp_signed_min(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
