@@ -391,9 +391,31 @@ static void pi_imm(DUT* dut) {
     pulse(dut);
 
     // Q (2.30) pi
-    const uint32_t pi = 3373259426;
+    const uint32_t pi = 0xC90FDAA2;
     dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_write == pi);
+}
+
+static void one_over_two_pi_imm(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(150); pulse(dut);
+    dut->inst_i = dual(
+        Op::MUL,
+        Reg::R0,
+        Imm::ONE_OVER_TWO_PI,
+        Cond::ALWAYS,
+        Shift(true, 32)
+    );
+    pulse(dut);
+
+    // ((150 / (2 * pi)) % 1) * (2^32)
+    const uint32_t expected = 0xDF8CC0A8;
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == expected);
 }
 
 int main(int argc, char** argv) {
@@ -428,6 +450,7 @@ int main(int argc, char** argv) {
     bnot(dut);
     add_imm_one(dut);
     pi_imm(dut);
+    one_over_two_pi_imm(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
