@@ -19,7 +19,10 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_CLAMP = 4'b0100,
     ALU_OP_LOAD = 4'b0101,
     ALU_OP_BRANCH = 4'b0110,
-    ALU_OP_MEM_WRITE = 4'b0111
+    ALU_OP_MEM_WRITE = 4'b0111,
+    ALU_OP_IADD = 4'b1000,
+    ALU_OP_ISUB = 4'b1001,
+    ALU_OP_IMUL = 4'b1010
 } alu_op_e;
 
 `define ALU_SHIFT_WIDTH 1
@@ -51,13 +54,35 @@ typedef struct packed {
             logic [`REG_INDEX_WIDTH-1:0] reg_0;
             logic [`REG_INDEX_WIDTH-1:0] reg_1;
             logic [`REG_INDEX_WIDTH-1:0] reg_2;
+
             logic is_signed;
             logic set_flags;
 
+            // Load an immediate value in place of `reg_1`.
+            logic immediate;
+
             // The bitwise shift to apply to the intermediate result.
+            alu_shift_e i_shift;
+            logic [5:0] i_shift_bits;
+        } triple;
+
+        struct packed {
+            logic [`REG_INDEX_WIDTH-1:0] reg_0;
+            logic [`REG_INDEX_WIDTH-1:0] reg_1;
+
+            // The bitwise shift to apply to `reg_1`.
             alu_shift_e shift;
-            logic [6:0] shift_bits;
-        } triple_reg;
+            logic [4:0] shift_bits;
+
+            logic set_flags;
+
+            // Load an immediate value in place of `reg_1`.
+            logic immediate;
+
+            // The bitwise shift to apply to the intermediate result.
+            alu_shift_e i_shift;
+            logic [5:0] i_shift_bits;
+        } dual;
 
         struct packed {
             // If this is a backwards branch.
@@ -85,7 +110,20 @@ module alu #(
     parameter pc_width = 10,
 
     // The width of a memory address.
-    parameter mem_addr_width = 16
+    parameter mem_addr_width = 16,
+
+    parameter [`NUM_REGS-1:0][`REG_WIDTH*2-1:0] immediates = '{
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0,
+
+        64'hC90FDAA22168C235, // (Q 2.62) pi
+        64'h28BE60DB9391054B, // (Q 0.64) 1 / (2 * pi)
+        64'hB504F333F9DE6484, // (Q 1.63) sqrt(2)
+        64'hFFFFFFFFFFFFFFFF, // -1
+        64'h0000000000000001  //  1
+    }
 
     // TODO: Add RCP.
     // The bit precision of the reciprocal instruction.
@@ -120,41 +158,48 @@ module alu #(
         `NUM_REGS - 1
     );
 
-    wire [width-1:0] reg_value_0 = (inst.data.triple_reg.reg_0 == zero_reg)
-        ? 0 : regs[inst.data.triple_reg.reg_0];
+    wire [width-1:0] reg_value_0 = (inst.data.triple.reg_0 == zero_reg)
+        ? 0 : regs[inst.data.triple.reg_0];
 
-    wire [width-1:0] reg_value_1 = (inst.data.triple_reg.reg_1 == zero_reg)
-        ? 0 : regs[inst.data.triple_reg.reg_1];
+    wire [width-1:0] reg_value_1 = (inst.data.triple.reg_1 == zero_reg)
+        ? 0 : regs[inst.data.triple.reg_1];
 
-    wire [width-1:0] reg_value_2 = (inst.data.triple_reg.reg_2 == zero_reg)
-        ? 0 : regs[inst.data.triple_reg.reg_2];
+    wire [width-1:0] reg_value_2 = (inst.data.triple.reg_2 == zero_reg)
+        ? 0 : regs[inst.data.triple.reg_2];
 
     logic [`NUM_REGS-2:0][width-1:0] regs;
 
     // The width of intermediate values.
     localparam i_width = width * 2;
 
+    // TODO: Maybe the highest bits of the i_result should be saved and wired
+    // into one of the immediates. That way a single calculation can give
+    // optionally a full 64 bit result.
     // The intermediate result of the calculation.
     logic [i_width-1:0] i_result;
 
-    // If the instruction takes three regs as arguments.
-    logic is_triple_reg;
+    // If the instruction takes two values as arguments.
+    logic is_dual;
     always_comb begin
         casez (op)
-            ALU_OP_LOAD: is_triple_reg = 0;
-            ALU_OP_BRANCH: is_triple_reg = 0;
-            ALU_OP_MEM_WRITE: is_triple_reg = 0;
-            default: is_triple_reg = 1;
+            ALU_OP_LOAD,
+            ALU_OP_BRANCH,
+            ALU_OP_MEM_WRITE,
+            ALU_OP_CLAMP: begin
+                is_dual = 0;
+            end default: begin
+                is_dual = 1;
+            end
         endcase
     end
 
-    // TODO: This should account for the sign.
-    /* verilator lint_off UNUSEDSIGNAL */
+    // If the instruction takes three values as arguments.
+    wire is_triple = (op == ALU_OP_CLAMP);
+
     // The shifted intermediate value.
-    wire [i_width-1:0] i_shifted = (inst.data.triple_reg.shift == ALU_SHIFT_LT) 
-        ? i_result <<< inst.data.triple_reg.shift_bits
-        : i_result >>> inst.data.triple_reg.shift_bits;
-    /* verilator lint_on UNUSEDSIGNAL */
+    wire [i_width-1:0] i_shifted = (inst.data.triple.i_shift == ALU_SHIFT_LT) 
+        ? i_result <<< inst.data.triple.i_shift_bits
+        : i_result >>> inst.data.triple.i_shift_bits;
 
     // Only execute instructions when their conditions are met.
     logic exec;
@@ -195,6 +240,8 @@ module alu #(
         end
     end
 
+    wire set_flags = inst.data.dual.set_flags;
+
     always @(posedge clk_i) begin
         if (reset_i) begin
             flags <= 0;
@@ -202,8 +249,8 @@ module alu #(
         end else if (!exec) begin
             flags <= flags;
             regs[0] <= regs[0];
-        end else if (is_triple_reg) begin
-            if (inst.data.triple_reg.set_flags) begin
+        end else if (is_dual) begin
+            if (set_flags) begin
                 flags.zero <= width'(i_shifted) == 0;
                 flags.neg <= i_shifted[width-1];
             end else begin
@@ -217,17 +264,50 @@ module alu #(
         end
     end
 
-    wire is_signed = inst.data.triple_reg.is_signed;
+    // If the intermediate values should be signed extended.
+    logic is_signed;
+    always_comb begin
+        if (is_triple) begin
+            is_signed = inst.data.triple.is_signed;
+        end else begin
+            casez (op)
+                ALU_OP_IADD: is_signed = 1;
+                ALU_OP_ISUB: is_signed = 1;
+                ALU_OP_IMUL: is_signed = 1;
+                default: is_signed = 0;
+            endcase
+        end
+    end
 
     wire [i_width-1:0] i_value_0 = {
         {width{is_signed & reg_value_0[width-1]}},
         reg_value_0[width-1:0]
     };
 
-    wire [i_width-1:0] i_value_1 = {
-        {width{is_signed & reg_value_1[width-1]}},
-        reg_value_1[width-1:0]
-    };
+    logic [i_width-1:0] i_src_value_1;
+    always_comb begin
+        if (inst.data.triple.immediate) begin
+            i_src_value_1 = immediates[inst.data.dual.reg_1];
+        end else begin
+            i_src_value_1 = {
+                {width{is_signed & reg_value_1[width-1]}},
+                reg_value_1[width-1:0]
+            };
+        end
+    end
+
+    logic [i_width-1:0] i_value_1;
+    always_comb begin
+        if (is_dual) begin
+            if (inst.data.dual.shift == ALU_SHIFT_LT) begin
+                i_value_1 = i_src_value_1 <<< inst.data.dual.shift_bits;
+            end else begin
+                i_value_1 = i_src_value_1 >>> inst.data.dual.shift_bits;
+            end
+        end else begin
+            i_value_1 = i_src_value_1;
+        end
+    end
 
     wire [i_width-1:0] i_value_2 = {
         {width{is_signed & reg_value_2[width-1]}},
@@ -236,31 +316,31 @@ module alu #(
 
     always_comb begin
         casez (op)
-            ALU_OP_ADD: begin
-                i_result = i_value_0 + i_value_1 + i_value_2;
-            end ALU_OP_SUB: begin
-                i_result = i_value_0 - i_value_1 - i_value_2;
-            end ALU_OP_MUL: begin
-                i_result = i_value_0 * i_value_1 + i_value_2;
+            ALU_OP_ADD, ALU_OP_IADD: begin
+                i_result = i_value_0 + i_value_1;
+            end ALU_OP_SUB, ALU_OP_ISUB: begin
+                i_result = i_value_0 - i_value_1;
+            end ALU_OP_MUL, ALU_OP_IMUL: begin
+                i_result = i_value_0 * i_value_1;
             end ALU_OP_RCP: begin
                 // TODO: Finish.
                 i_result = i_width'(regs[`NUM_REGS-2]);
             end ALU_OP_CLAMP: begin
                 if (is_signed) begin
-                    if (signed'(i_value_0) < signed'(i_value_1)) begin
-                        i_result = i_value_0;
-                    end else if (signed'(i_value_1) < signed'(i_value_2)) begin
+                    if (signed'(i_value_1) > signed'(i_value_0)) begin
+                        i_result = i_value_1;
+                    end else if (signed'(i_value_2) < signed'(i_value_0)) begin
                         i_result = i_value_2;
                     end else begin
-                        i_result = i_value_1;
+                        i_result = i_value_0;
                     end
                 end else begin
-                    if (i_value_0 > i_value_1) begin
-                        i_result = i_value_0;
-                    end else if (i_value_1 > i_value_2) begin
+                    if (i_value_1 > i_value_0) begin
+                        i_result = i_value_1;
+                    end else if (i_value_2 < i_value_0) begin
                         i_result = i_value_2;
                     end else begin
-                        i_result = i_value_1;
+                        i_result = i_value_0;
                     end
                 end
             end

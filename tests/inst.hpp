@@ -11,6 +11,9 @@ enum Op : uint8_t {
     LOAD = 0b0101,
     BRANCH = 0b0110,
     MEM_WRITE = 0b0111,
+    IADD = 0b1000,
+    ISUB = 0b1001,
+    IMUL = 0b1010,
 };
 
 enum Cond : uint8_t {
@@ -56,36 +59,44 @@ enum Reg : uint8_t {
     ZERO = 31,
 };
 
+enum Imm : uint8_t {
+    ONE = 0,
+    NEG_ONE = 1,
+    SQRT_2 = 2,
+    ONE_OVER_TWO_PI = 3,
+    PI = 4,
+};
+
 typedef uint32_t Inst;
 
 typedef struct Shift {
     bool right;
     uint8_t bits;
+
+    Shift(bool rl = false, uint8_t b = 0) : right(rl), bits(b) {}
 } Shift;
 
-static Inst triple(
+static Inst dual_intern(
     Op op,
     Reg a,
-    Reg b,
-    Reg c = Reg::ZERO,
-    bool is_signed = false,
+    bool v1_immediate,
+    uint8_t v1,
+    Shift v1_shift = Shift(),
     bool set_flags = false,
-    Shift shift = {
-        .right = false,
-        .bits = 0,
-    },
     Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
     bool shift_regs = true
 ) {
     return ((uint32_t)(!shift_regs) << 31)
         | ((uint32_t)cond << 29)
         | ((uint32_t)op << 25)
         | ((uint32_t)a << 20)
-        | ((uint32_t)b << 15)
-        | ((uint32_t)c << 10)
-        | ((uint32_t)is_signed << 9)
+        | ((uint32_t)v1 << 15)
+        | ((uint32_t)v1_shift.right << 14)
+        | ((uint32_t)v1_shift.bits << 9)
         | ((uint32_t)set_flags << 8)
-        | ((uint32_t)shift.right << 7)
+        | ((uint32_t)v1_immediate << 7)
+        | ((uint32_t)shift.right << 6)
         | ((uint32_t)shift.bits);
 }
 
@@ -93,24 +104,135 @@ static Inst dual(
     Op op,
     Reg a,
     Reg b,
+    Shift v1_shift = Shift(),
+    bool set_flags = false,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return dual_intern(
+        op, a, false, b, v1_shift, set_flags, cond, shift, shift_regs
+    );
+}
+
+static Inst dual(Op op, Reg a, Reg b, bool set_flags, Shift shift = Shift()) {
+    return dual(op, a, b, Shift(), set_flags, Cond::ALWAYS, shift);
+}
+
+static Inst dual(
+    Op op,
+    Reg a,
+    Reg b,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return dual(op, a, b, Shift(), false, cond, shift, shift_regs);
+}
+
+static Inst dual(
+    Op op,
+    Reg a,
+    Imm imm,
+    Shift imm_shift = Shift(),
+    bool set_flags = false,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return dual_intern(
+        op, a, true, imm, imm_shift, set_flags, cond, shift, shift_regs
+    );
+}
+
+static Inst dual(Op op, Reg a, Imm b, bool set_flags, Shift shift = Shift()) {
+    return dual(op, a, b, Shift(), set_flags, Cond::ALWAYS, shift);
+}
+
+static Inst neg(
+    Reg a,
+    bool set_flags = false,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    // TODO: Should be signed.
+    return dual(
+        Op::SUB, Reg::ZERO, a, Shift(), set_flags, cond, shift, shift_regs
+    );
+}
+
+static Inst clamp_intern(
+    Reg value,
+    bool min_immediate,
+    uint8_t min,
+    Reg max,
     bool is_signed,
     bool set_flags,
-    Cond cond = Cond::ALWAYS
+    Cond cond,
+    Shift shift,
+    bool shift_regs
 ) {
-    const Shift shift = { .right = false, .bits = 0 };
-    return triple(op, a, b, Reg::ZERO, is_signed, set_flags, shift, cond);
+    return ((uint32_t)(!shift_regs) << 31)
+        | ((uint32_t)cond << 29)
+        | ((uint32_t)Op::CLAMP << 25)
+        | ((uint32_t)value << 20)
+        | ((uint32_t)min << 15)
+        | ((uint32_t)max << 10)
+        | ((uint32_t)is_signed << 9)
+        | ((uint32_t)set_flags << 8)
+        | ((uint32_t)min_immediate << 7)
+        | ((uint32_t)shift.right << 6)
+        | ((uint32_t)shift.bits);
 }
 
-static Inst dual(Op op, Reg a, Reg b, Cond cond = Cond::ALWAYS) {
-    return dual(op, a, b, false, false, cond);
+static Inst clamp(
+    Reg value,
+    Reg min,
+    Reg max,
+    bool is_signed = false,
+    bool set_flags = false,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return clamp_intern(
+        value, false, min, max, is_signed, set_flags, cond, shift, shift_regs
+    );
 }
 
-static Inst dual(Op op, Reg a, Reg b, Shift shift) {
-    return triple(op, a, b, Reg::ZERO, false, false, shift);
+static Inst clamp(
+    Reg value,
+    Imm min,
+    Reg max,
+    bool is_signed = false,
+    bool set_flags = false,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return clamp_intern(
+        value, true, min, max, is_signed, set_flags, cond, shift, shift_regs
+    );
 }
 
-static Inst neg(Reg a, bool is_signed = true, bool set_flags = false) {
-    return dual(Op::SUB, Reg::ZERO, a, is_signed, set_flags);
+static Inst bnot(
+    Reg a,
+    bool set_flags = false,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return clamp(
+        a,
+        Imm::ONE,
+        Reg::ZERO,
+        false,
+        set_flags,
+        cond,
+        shift,
+        shift_regs
+    );
 }
 
 static Inst branch(

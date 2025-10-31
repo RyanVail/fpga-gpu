@@ -57,12 +57,16 @@ static void eqz_flag(DUT* dut) {
     assert((dut->flags & zero_mask) == 0);
 
     // (R0 + R1) -> 10 + 10
-    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, false, true);
-    pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, true); pulse(dut);
     assert((dut->flags & zero_mask) == 0);
 
-    // (R0 - R1 - R2) -> (20 - 10 - 10) = 0
-    dut->inst_i = triple(Op::SUB, Reg::R0, Reg::R1, Reg::R2, false, true);
+    // (R0 - (R1 << 1)) -> (20 - 20) = 0
+    dut->inst_i = dual(
+        Op::SUB,
+        Reg::R0, Reg::R1,
+        Shift(false, 1),
+        true
+    );
     pulse(dut);
     assert((dut->flags & zero_mask) != 0);
 }
@@ -74,41 +78,24 @@ static void neg_flag(DUT* dut) {
 
     // TODO: Enum for this.
     const uint32_t neg_mask = 2;
-
     assert((dut->flags & neg_mask) == 0);
 
     dut->inst_i = load(10); pulse(dut);
     assert((dut->flags & neg_mask) == 0);
 
-    dut->inst_i = neg(Reg::R0, false, true);
-    pulse(dut);
+    dut->inst_i = neg(Reg::R0, true); pulse(dut);
     assert((dut->flags & neg_mask) != 0);
 
-    dut->inst_i = neg(Reg::R0, false, true);
-    pulse(dut);
+    dut->inst_i = neg(Reg::R0, true); pulse(dut);
     assert((dut->flags & neg_mask) == 0);
 
-    dut->inst_i = neg(Reg::R0, false, true);
-    pulse(dut);
+    dut->inst_i = neg(Reg::R0, true); pulse(dut);
     assert((dut->flags & neg_mask) != 0);
 
-    Shift shift = { .right = true, .bits = 0 };
-    dut->inst_i = triple(
-        Op::ADD,
-        Reg::R0, Reg::ZERO, Reg::ZERO,
-        false, true,
-        shift
-    );
-    pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::ZERO, true); pulse(dut);
     assert((dut->flags & neg_mask) != 0);
 
-    shift.bits = 32;
-    dut->inst_i = triple(
-        Op::ADD,
-        Reg::R0, Reg::ZERO, Reg::ZERO,
-        false, true,
-        shift
-    );
+    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::ZERO, true, Shift(true, 32));
     pulse(dut);
     assert((dut->flags & neg_mask) == 0);
 }
@@ -117,28 +104,19 @@ static void cond_branch(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
-
     assert(dut->pc == 0);
 
-    dut->inst_i = dual(Op::ADD, Reg::ZERO, Reg::ZERO, false, true);
-    pulse(dut);
-
-    dut->inst_i = branch(Cond::EQZ, 100);
-    pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::ZERO, Reg::ZERO, true); pulse(dut);
+    dut->inst_i = branch(Cond::EQZ, 100); pulse(dut);
     assert(dut->pc == 1 + 100);
 
-    dut->inst_i = load(10);
-    pulse(dut);
+    dut->inst_i = load(10); pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::ZERO, Reg::R0, true); pulse(dut);
 
-    dut->inst_i = dual(Op::ADD, Reg::ZERO, Reg::R0, false, true);
-    pulse(dut);
-
-    dut->inst_i = branch(Cond::EQZ, 20, true);
-    pulse(dut);
+    dut->inst_i = branch(Cond::EQZ, 20, true); pulse(dut);
     assert(dut->pc == 1 + 100 + 3);
 
-    dut->inst_i = branch(Cond::NEZ, 20, true);
-    pulse(dut);
+    dut->inst_i = branch(Cond::NEZ, 20, true); pulse(dut);
     assert(dut->pc == 1 + 100 + 3 - 20);
 }
 
@@ -147,45 +125,11 @@ static void cond_load(DUT* dut) {
     pulse(dut);
     dut->reset_i = 0;
 
-    dut->inst_i = load(5);
-    pulse(dut);
+    dut->inst_i = load(5); pulse(dut);
+    dut->inst_i = load(613, Cond::EQZ); pulse(dut);
 
-    dut->inst_i = load(613, Cond::EQZ);
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0);
-    pulse(dut);
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_write == 5);
-}
-
-static void fmadd(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    const uint32_t a = 0xA9C;
-    const uint32_t b = 0x6;
-    const uint32_t c = 0xFA6;
-
-    dut->inst_i = load(a); pulse(dut);
-    dut->inst_i = load(b); pulse(dut);
-    dut->inst_i = load(c); pulse(dut);
-
-    const Shift shift = { .right = true, .bits = 2 };
-    dut->inst_i = triple(
-        Op::MUL,
-        Reg::R2, Reg::R1, Reg::R0,
-        false, false,
-        shift
-    );
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0);
-    pulse(dut);
-
-    const uint64_t expected = (uint64_t)a * (uint64_t)b + (uint64_t)c;
-    assert(dut->w_valid_o);
-    assert(dut->w_write == expected >> 2);
 }
 
 static void mul_high(DUT* dut) {
@@ -194,11 +138,14 @@ static void mul_high(DUT* dut) {
     dut->reset_i = 0;
 
     const uint32_t value = 0xEC6C09;
-    dut->inst_i = load(value);
-    pulse(dut);
+    dut->inst_i = load(value); pulse(dut);
 
-    const Shift shift = { .right = true, .bits = 32 };
-    dut->inst_i = dual(Op::MUL, Reg::R0, Reg::R0, shift);
+    dut->inst_i = dual(
+        Op::MUL,
+        Reg::R0, Reg::R0,
+        Cond::ALWAYS,
+        Shift(true, 32)
+    );
     pulse(dut);
 
     dut->inst_i = write(Reg::ZERO, Reg::R0);
@@ -220,15 +167,14 @@ static void write_offset(DUT* dut) {
     dut->inst_i = load(value); pulse(dut);
 
     const uint32_t offset = 500;
-    dut->inst_i = write(Reg::R1, Reg::R0, offset);
-    pulse(dut);
+    dut->inst_i = write(Reg::R1, Reg::R0, offset); pulse(dut);
 
     assert(dut->w_valid_o);
     assert(dut->w_addr == addr + offset);
     assert(dut->w_write == value); 
 }
 
-static void add_no_shift(DUT* dut) {
+static void add_no_reg_shift(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
@@ -242,12 +188,12 @@ static void add_no_shift(DUT* dut) {
         pulse(dut);
     }
 
-    dut->inst_i = triple(
+    dut->inst_i = dual(
         Op::ADD,
-        static_cast<Reg>(len - 1), Reg::ZERO, Reg::ZERO,
-        false, false,
-        (Shift) { .right = false, .bits = 0 },
+        static_cast<Reg>(len - 1),
+        Reg::ZERO,
         Cond::ALWAYS,
+        Shift(),
         false
     );
     pulse(dut);
@@ -260,34 +206,52 @@ static void add_no_shift(DUT* dut) {
     assert(dut->w_write == values[0]);
 }
 
-static void neg_mul_shift(DUT* dut) {
+static void add_imm_shift(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
 
-    assert(dut->w_valid_o == 0);
-
-    dut->inst_i = load(20);
-    pulse(dut);
-
-    dut->inst_i = neg(Reg::R0, true);
-    pulse(dut);
-
-    dut->inst_i = load(10);
-    pulse(dut);
-
-    const Shift shift = { .right = true, .bits = 3 };
-    dut->inst_i = triple(
-        Op::MUL,
-        Reg::R0, Reg::R1, Reg::ZERO,
-        true, false,
-        shift
-    );
+    dut->inst_i = dual(Op::ADD, Reg::ZERO, Imm::ONE, Shift(false, 4));
     pulse(dut);
 
     dut->inst_i = write(Reg::ZERO, Reg::R0);
     pulse(dut);
 
+    assert(dut->w_valid_o);
+    assert(dut->w_addr == 0);
+    assert(dut->w_write == 1 << 4);
+}
+
+static void add_reg_shift(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(53); pulse(dut);
+    dut->inst_i = load(26032); pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::R1, Reg::R0, Shift(true, 3));
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_valid_o);
+    assert(dut->w_addr == 0);
+    assert(dut->w_write == 53 + (26032 >> 3));
+}
+
+static void neg_mul_shift(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+    assert(dut->w_valid_o == 0);
+
+    dut->inst_i = load(20); pulse(dut);
+    dut->inst_i = neg(Reg::R0, true); pulse(dut);
+    dut->inst_i = load(10); pulse(dut);
+
+    dut->inst_i = dual(Op::IMUL, Reg::R0, Reg::R1, true, Shift(true, 3));
+    pulse(dut);
+
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_valid_o);
     assert(dut->w_addr == 0);
     assert(dut->w_write == -25);
@@ -297,27 +261,20 @@ static void mul_shift(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
-
     assert(dut->w_valid_o == 0);
 
-    dut->inst_i = load(234);
-    pulse(dut);
+    dut->inst_i = load(234); pulse(dut);
+    dut->inst_i = load(104); pulse(dut);
 
-    dut->inst_i = load(104);
-    pulse(dut);
-
-    const Shift shift = { .right = true, .bits = 3 };
-    dut->inst_i = triple(
+    dut->inst_i = dual(
         Op::MUL,
-        Reg::R0, Reg::R1, Reg::ZERO,
-        false, false,
-        shift
+        Reg::R0, Reg::R1,
+        Cond::ALWAYS,
+        Shift(true, 3)
     );
     pulse(dut);
 
-    dut->inst_i = write(Reg::ZERO, Reg::R0);
-    pulse(dut);
-
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_valid_o);
     assert(dut->w_addr == 0);
     assert(dut->w_write == 3042);
@@ -327,21 +284,14 @@ static void cond_add(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
-
     assert(dut->w_valid_o == 0);
 
-    dut->inst_i = load(234);
+    dut->inst_i = load(234); pulse(dut);
+    dut->inst_i = load(104); pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, Cond::EQZ);
     pulse(dut);
 
-    dut->inst_i = load(104);
-    pulse(dut);
-
-    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, false, false, Cond::EQZ);
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0);
-    pulse(dut);
-
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_valid_o);
     assert(dut->w_addr == 0);
     assert(dut->w_write == 104);
@@ -355,7 +305,7 @@ static void clamp_unsigned_min(DUT* dut) {
     dut->inst_i = load(500); pulse(dut);
     dut->inst_i = load(250); pulse(dut);
     dut->inst_i = load(265); pulse(dut);
-    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R1, Reg::R2); pulse(dut);
+    dut->inst_i = clamp(Reg::R2, Reg::R1, Reg::R0); pulse(dut);
     dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_write == 265);
 }
@@ -365,10 +315,10 @@ static void clamp_unsigned_max(DUT* dut) {
     pulse(dut);
     dut->reset_i = 0;
 
-    dut->inst_i = load(600); pulse(dut);
     dut->inst_i = load(2000); pulse(dut);
     dut->inst_i = load(0); pulse(dut);
-    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R1, Reg::R2); pulse(dut);
+    dut->inst_i = load(600); pulse(dut);
+    dut->inst_i = clamp(Reg::R2, Reg::R1, Reg::R0); pulse(dut);
     dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_write == 600);
 }
@@ -379,9 +329,9 @@ static void clamp_unsigned_mid(DUT* dut) {
     dut->reset_i = 0;
 
     dut->inst_i = load(600); pulse(dut);
-    dut->inst_i = load(2000); pulse(dut);
     dut->inst_i = load(0); pulse(dut);
-    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R1, Reg::R2); pulse(dut);
+    dut->inst_i = load(2000); pulse(dut);
+    dut->inst_i = clamp(Reg::R2, Reg::R1, Reg::R0); pulse(dut);
     dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_write == 600);
 }
@@ -391,14 +341,59 @@ static void clamp_signed_min(DUT* dut) {
     pulse(dut);
     dut->reset_i = 0;
 
-    dut->inst_i = load(20); pulse(dut);
     dut->inst_i = load(999); pulse(dut);
     dut->inst_i = neg(Reg::R0); pulse(dut);
     dut->inst_i = load(20); pulse(dut);
     dut->inst_i = neg(Reg::R0); pulse(dut);
-    dut->inst_i = triple(Op::CLAMP, Reg::R0, Reg::R2, Reg::R4); pulse(dut);
+    dut->inst_i = clamp(Reg::R2, Reg::R0, Reg::R1); pulse(dut);
     dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
     assert(dut->w_write == -20);
+}
+
+static void bnot(DUT* dut) {
+    const size_t len = 8;
+    const uint32_t values[len] = { 10000, 10, 50, 4, 3, 2, 1, 0 };
+    for (size_t i = 0; i < len; i++) {
+        dut->reset_i = 1;
+        pulse(dut);
+        dut->reset_i = 0;
+
+        dut->inst_i = load(values[i]); pulse(dut);
+        dut->inst_i = bnot(Reg::R0); pulse(dut);
+        dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+        assert(dut->w_write == !values[i]);
+    }
+}
+
+static void add_imm_one(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = load(99); pulse(dut);
+    dut->inst_i = dual(Op::ADD, Reg::R0, Imm::ONE); pulse(dut);
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == 100);
+}
+
+static void pi_imm(DUT* dut) {
+    dut->reset_i = 1;
+    pulse(dut);
+    dut->reset_i = 0;
+
+    dut->inst_i = dual(
+        Op::ADD,
+        Reg::ZERO,
+        Imm::PI,
+        Cond::ALWAYS,
+        Shift(true, 32)
+    );
+    pulse(dut);
+
+    // Q (2.30) pi
+    const uint32_t pi = 3373259426;
+    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
+    assert(dut->w_write == pi);
 }
 
 int main(int argc, char** argv) {
@@ -418,10 +413,11 @@ int main(int argc, char** argv) {
     neg_flag(dut);
     cond_branch(dut);
     cond_load(dut);
-    fmadd(dut);
     mul_high(dut);
     write_offset(dut);
-    add_no_shift(dut);
+    add_no_reg_shift(dut);
+    add_imm_shift(dut);
+    add_reg_shift(dut);
     neg_mul_shift(dut);
     mul_shift(dut);
     cond_add(dut);
@@ -429,6 +425,9 @@ int main(int argc, char** argv) {
     clamp_unsigned_max(dut);
     clamp_unsigned_min(dut);
     clamp_signed_min(dut);
+    bnot(dut);
+    add_imm_one(dut);
+    pi_imm(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
