@@ -300,7 +300,7 @@ static Inst iupt(Cond cond, Reg reg, bool shift_regs = false) {
         | ((uint32_t)reg << 20);
 }
 
-static Inst iupt(Reg reg) {
+static Inst iupt(Reg reg = Reg::R0) {
     return iupt(Cond::ALWAYS, reg);
 }
 
