@@ -398,6 +398,10 @@ module alu #(
             end
         end else if (!stalled) begin
             pc <= pc + 1;
+
+            if (pc == '1) begin
+                $fatal(1, "Program counter overflowed");
+            end
         end
     end
 endmodule
