@@ -64,21 +64,21 @@ static void exec(DUT* dut, Inst inst) {
     assert(dut->w_write == expected); \
 })
 
+#define assert_flag(dut, flag, expected) assert( \
+    (bool)(dut->flags & flag) == expected \
+)
+
 static void eqz_flag(DUT* dut) {
     reset(dut);
-
-    // TODO: Enum for this.
-    const uint32_t zero_mask = 1;
-
-    assert((dut->flags & zero_mask) == 0);
+    assert_flag(dut, Flag::Z, false);
 
     exec(dut, load(10));
     exec(dut, load(10));
-    assert((dut->flags & zero_mask) == 0);
+    assert_flag(dut, Flag::Z, false);
 
     // (R0 + R1) -> 10 + 10
     exec(dut, dual(Op::ADD, Reg::R0, Reg::R1, true));
-    assert((dut->flags & zero_mask) == 0);
+    assert_flag(dut, Flag::Z, false);
 
     // (R0 - (R1 << 1)) -> (20 - 20) = 0
     exec(dut, dual(
@@ -87,33 +87,30 @@ static void eqz_flag(DUT* dut) {
         Shift(false, 1),
         true
     ));
-    assert((dut->flags & zero_mask) != 0);
+    assert_flag(dut, Flag::Z, true);
 }
 
 static void neg_flag(DUT* dut) {
     reset(dut);
-
-    // TODO: Enum for this.
-    const uint32_t neg_mask = 2;
-    assert((dut->flags & neg_mask) == 0);
+    assert_flag(dut, Flag::N, false);
 
     exec(dut, load(10));
-    assert((dut->flags & neg_mask) == 0);
+    assert_flag(dut, Flag::N, false);
 
     exec(dut, neg(Reg::R0, true));
-    assert((dut->flags & neg_mask) != 0);
+    assert_flag(dut, Flag::N, true);
 
     exec(dut, neg(Reg::R0, true));
-    assert((dut->flags & neg_mask) == 0);
+    assert_flag(dut, Flag::N, false);
 
     exec(dut, neg(Reg::R0, true));
-    assert((dut->flags & neg_mask) != 0);
+    assert_flag(dut, Flag::N, true);
 
     exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
-    assert((dut->flags & neg_mask) != 0);
+    assert_flag(dut, Flag::N, true);
 
     exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true, Shift(true, 32)));
-    assert((dut->flags & neg_mask) == 0);
+    assert_flag(dut, Flag::N, false);
 }
 
 static void cond_branch(DUT* dut) {

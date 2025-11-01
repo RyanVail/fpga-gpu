@@ -2,6 +2,11 @@
 
 namespace inst {
 
+enum Flag : uint8_t {
+    Z = 1, // Zero
+    N = 2, // Negative
+};
+
 enum Op : uint8_t {
     ADD = 0b0000,
     SUB = 0b0001,
