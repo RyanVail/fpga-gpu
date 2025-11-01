@@ -42,132 +42,130 @@ static void pulse(DUT* dut) {
     dut->clk_i = 0;
 }
 
-static void eqz_flag(DUT* dut) {
+static void reset(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
+
+    assert(dut->w_valid_o == 0);
+    assert(dut->pc == 0);
+}
+
+static void exec(DUT* dut, Inst inst) {
+    dut->inst_i = inst;
+    pulse(dut);
+}
+
+#define assert_reg(dut, reg, expected) ({ \
+    assert(dut->w_valid_o == 0); \
+    exec(dut, write(Reg::ZERO, reg)); \
+    assert(dut->w_valid_o); \
+    assert(dut->w_addr == 0); \
+    assert(dut->w_write == expected); \
+})
+
+static void eqz_flag(DUT* dut) {
+    reset(dut);
 
     // TODO: Enum for this.
     const uint32_t zero_mask = 1;
 
     assert((dut->flags & zero_mask) == 0);
 
-    dut->inst_i = load(10); pulse(dut);
-    dut->inst_i = load(10); pulse(dut);
+    exec(dut, load(10));
+    exec(dut, load(10));
     assert((dut->flags & zero_mask) == 0);
 
     // (R0 + R1) -> 10 + 10
-    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, true); pulse(dut);
+    exec(dut, dual(Op::ADD, Reg::R0, Reg::R1, true));
     assert((dut->flags & zero_mask) == 0);
 
     // (R0 - (R1 << 1)) -> (20 - 20) = 0
-    dut->inst_i = dual(
+    exec(dut, dual(
         Op::SUB,
         Reg::R0, Reg::R1,
         Shift(false, 1),
         true
-    );
-    pulse(dut);
+    ));
     assert((dut->flags & zero_mask) != 0);
 }
 
 static void neg_flag(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
+    reset(dut);
 
     // TODO: Enum for this.
     const uint32_t neg_mask = 2;
     assert((dut->flags & neg_mask) == 0);
 
-    dut->inst_i = load(10); pulse(dut);
+    exec(dut, load(10));
     assert((dut->flags & neg_mask) == 0);
 
-    dut->inst_i = neg(Reg::R0, true); pulse(dut);
+    exec(dut, neg(Reg::R0, true));
     assert((dut->flags & neg_mask) != 0);
 
-    dut->inst_i = neg(Reg::R0, true); pulse(dut);
+    exec(dut, neg(Reg::R0, true));
     assert((dut->flags & neg_mask) == 0);
 
-    dut->inst_i = neg(Reg::R0, true); pulse(dut);
+    exec(dut, neg(Reg::R0, true));
     assert((dut->flags & neg_mask) != 0);
 
-    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::ZERO, true); pulse(dut);
+    exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
     assert((dut->flags & neg_mask) != 0);
 
-    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::ZERO, true, Shift(true, 32));
-    pulse(dut);
+    exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true, Shift(true, 32)));
     assert((dut->flags & neg_mask) == 0);
 }
 
 static void cond_branch(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-    assert(dut->pc == 0);
+    reset(dut);
 
-    dut->inst_i = dual(Op::ADD, Reg::ZERO, Reg::ZERO, true); pulse(dut);
-    dut->inst_i = branch(Cond::EQZ, 100); pulse(dut);
+    exec(dut, dual(Op::ADD, Reg::ZERO, Reg::ZERO, true));
+    exec(dut, branch(Cond::EQZ, 100));
     assert(dut->pc == 1 + 100);
 
-    dut->inst_i = load(10); pulse(dut);
-    dut->inst_i = dual(Op::ADD, Reg::ZERO, Reg::R0, true); pulse(dut);
+    exec(dut, load(10));
+    exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
 
-    dut->inst_i = branch(Cond::EQZ, 20, true); pulse(dut);
+    exec(dut, branch(Cond::EQZ, 20, true));
     assert(dut->pc == 1 + 100 + 3);
 
-    dut->inst_i = branch(Cond::NEZ, 20, true); pulse(dut);
+    exec(dut, branch(Cond::NEZ, 20, true));
     assert(dut->pc == 1 + 100 + 3 - 20);
 }
 
 static void cond_load(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(5); pulse(dut);
-    dut->inst_i = load(613, Cond::EQZ); pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == 5);
+    reset(dut);
+    exec(dut, load(5));
+    exec(dut, load(613, Cond::EQZ));
+    assert_reg(dut, Reg::R0, 5);
 }
 
 static void mul_high(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
+    reset(dut);
 
     const uint32_t value = 0xEC6C09;
-    dut->inst_i = load(value); pulse(dut);
-
-    dut->inst_i = dual(
+    exec(dut, load(value));
+    exec(dut, dual(
         Op::MUL,
         Reg::R0, Reg::R0,
         Cond::ALWAYS,
         Shift(true, 32)
-    );
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0);
-    pulse(dut);
+    ));
 
     const uint64_t expected = (uint64_t)value * (uint64_t)value;
-    assert(dut->w_valid_o);
-    assert(dut->w_write == expected >> 32);
+    assert_reg(dut, Reg::R0, expected >> 32);
 }
 
 static void write_offset(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
+    reset(dut);
 
     const uint32_t addr = 123;
     const uint32_t value = 0x6E8891;
-    dut->inst_i = load(addr); pulse(dut);
-    dut->inst_i = load(value); pulse(dut);
+    exec(dut, load(addr));
+    exec(dut, load(value));
 
     const uint32_t offset = 500;
-    dut->inst_i = write(Reg::R1, Reg::R0, offset); pulse(dut);
+    exec(dut, write(Reg::R1, Reg::R0, offset));
 
     assert(dut->w_valid_o);
     assert(dut->w_addr == addr + offset);
@@ -175,247 +173,155 @@ static void write_offset(DUT* dut) {
 }
 
 static void add_no_reg_shift(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    assert(dut->w_valid_o == 0);
+    reset(dut);
 
     const size_t len = 5;
     const uint32_t values[len] = { 0xEF9, 0xA2FD, 0x16B2, 0x18F, 0xC2A7 };
     for (size_t i = 0; i < len; i++) {
-        dut->inst_i = load(values[i]);
-        pulse(dut);
+        exec(dut, load(values[i]));
     }
 
-    dut->inst_i = dual(
+    exec(dut, dual(
         Op::ADD,
         static_cast<Reg>(len - 1),
         Reg::ZERO,
         Cond::ALWAYS,
         Shift(),
         false
-    );
-    pulse(dut);
+    ));
 
-    dut->inst_i = write(Reg::ZERO, static_cast<Reg>(len - 1));
-    pulse(dut);
-
-    assert(dut->w_valid_o);
-    assert(dut->w_addr == 0);
-    assert(dut->w_write == values[0]);
+    assert_reg(dut, static_cast<Reg>(len - 1), values[0]);
 }
 
 static void add_imm_shift(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = dual(Op::ADD, Reg::ZERO, Imm::ONE, Shift(false, 4));
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0);
-    pulse(dut);
-
-    assert(dut->w_valid_o);
-    assert(dut->w_addr == 0);
-    assert(dut->w_write == 1 << 4);
+    reset(dut);
+    exec(dut, dual(Op::ADD, Reg::ZERO, Imm::ONE, Shift(false, 4)));
+    assert_reg(dut, Reg::R0, 1 << 4);
 }
 
 static void add_reg_shift(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(53); pulse(dut);
-    dut->inst_i = load(26032); pulse(dut);
-    dut->inst_i = dual(Op::ADD, Reg::R1, Reg::R0, Shift(true, 3));
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_valid_o);
-    assert(dut->w_addr == 0);
-    assert(dut->w_write == 53 + (26032 >> 3));
+    reset(dut);
+    exec(dut, load(53));
+    exec(dut, load(26032));
+    exec(dut, dual(Op::ADD, Reg::R1, Reg::R0, Shift(true, 3)));
+    assert_reg(dut, Reg::R0, 53 + (26032 >> 3));
 }
 
 static void neg_mul_shift(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-    assert(dut->w_valid_o == 0);
-
-    dut->inst_i = load(20); pulse(dut);
-    dut->inst_i = neg(Reg::R0, true); pulse(dut);
-    dut->inst_i = load(10); pulse(dut);
-
-    dut->inst_i = dual(Op::IMUL, Reg::R0, Reg::R1, true, Shift(true, 3));
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_valid_o);
-    assert(dut->w_addr == 0);
-    assert(dut->w_write == -25);
+    reset(dut);
+    exec(dut, load(20));
+    exec(dut, neg(Reg::R0, true));
+    exec(dut, load(10));
+    exec(dut, dual(Op::IMUL, Reg::R0, Reg::R1, true, Shift(true, 3)));
+    assert_reg(dut, Reg::R0, -25);
 }
 
 static void mul_shift(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-    assert(dut->w_valid_o == 0);
-
-    dut->inst_i = load(234); pulse(dut);
-    dut->inst_i = load(104); pulse(dut);
-
-    dut->inst_i = dual(
+    reset(dut);
+    exec(dut, load(234));
+    exec(dut, load(104));
+    exec(dut, dual(
         Op::MUL,
         Reg::R0, Reg::R1,
         Cond::ALWAYS,
         Shift(true, 3)
-    );
-    pulse(dut);
+    ));
 
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_valid_o);
-    assert(dut->w_addr == 0);
-    assert(dut->w_write == 3042);
+    assert_reg(dut, Reg::R0, 3042);
 }
 
 static void cond_add(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-    assert(dut->w_valid_o == 0);
-
-    dut->inst_i = load(234); pulse(dut);
-    dut->inst_i = load(104); pulse(dut);
-    dut->inst_i = dual(Op::ADD, Reg::R0, Reg::R1, Cond::EQZ);
-    pulse(dut);
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_valid_o);
-    assert(dut->w_addr == 0);
-    assert(dut->w_write == 104);
+    reset(dut);
+    exec(dut, load(234));
+    exec(dut, load(104));
+    exec(dut, dual(Op::ADD, Reg::R0, Reg::R1, Cond::EQZ));
+    assert_reg(dut, Reg::R0, 104);
 }
 
 static void clamp_unsigned_min(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(500); pulse(dut);
-    dut->inst_i = load(250); pulse(dut);
-    dut->inst_i = load(265); pulse(dut);
-    dut->inst_i = clamp(Reg::R2, Reg::R1, Reg::R0); pulse(dut);
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == 265);
+    reset(dut);
+    exec(dut, load(500));
+    exec(dut, load(250));
+    exec(dut, load(265));
+    exec(dut, clamp(Reg::R2, Reg::R1, Reg::R0));
+    assert_reg(dut, Reg::R0, 265);
 }
 
 static void clamp_unsigned_max(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(2000); pulse(dut);
-    dut->inst_i = load(0); pulse(dut);
-    dut->inst_i = load(600); pulse(dut);
-    dut->inst_i = clamp(Reg::R2, Reg::R1, Reg::R0); pulse(dut);
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == 600);
+    reset(dut);
+    exec(dut, load(2000));
+    exec(dut, load(0));
+    exec(dut, load(600));
+    exec(dut, clamp(Reg::R2, Reg::R1, Reg::R0));
+    assert_reg(dut, Reg::R0, 600);
 }
 
 static void clamp_unsigned_mid(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(600); pulse(dut);
-    dut->inst_i = load(0); pulse(dut);
-    dut->inst_i = load(2000); pulse(dut);
-    dut->inst_i = clamp(Reg::R2, Reg::R1, Reg::R0); pulse(dut);
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == 600);
+    reset(dut);
+    exec(dut, load(600));
+    exec(dut, load(0));
+    exec(dut, load(2000));
+    exec(dut, clamp(Reg::R2, Reg::R1, Reg::R0));
+    assert_reg(dut, Reg::R0, 600);
 }
 
 static void clamp_signed_min(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(999); pulse(dut);
-    dut->inst_i = neg(Reg::R0); pulse(dut);
-    dut->inst_i = load(20); pulse(dut);
-    dut->inst_i = neg(Reg::R0); pulse(dut);
-    dut->inst_i = clamp(Reg::R2, Reg::R0, Reg::R1); pulse(dut);
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == -20);
+    reset(dut);
+    exec(dut, load(999));
+    exec(dut, neg(Reg::R0));
+    exec(dut, load(20));
+    exec(dut, neg(Reg::R0));
+    exec(dut, clamp(Reg::R2, Reg::R0, Reg::R1));
+    assert_reg(dut, Reg::R0, -20);
 }
 
 static void bnot(DUT* dut) {
     const size_t len = 8;
     const uint32_t values[len] = { 10000, 10, 50, 4, 3, 2, 1, 0 };
     for (size_t i = 0; i < len; i++) {
-        dut->reset_i = 1;
-        pulse(dut);
-        dut->reset_i = 0;
-
-        dut->inst_i = load(values[i]); pulse(dut);
-        dut->inst_i = bnot(Reg::R0); pulse(dut);
-        dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-        assert(dut->w_write == !values[i]);
+        reset(dut);
+        exec(dut, load(values[i]));
+        exec(dut, bnot(Reg::R0));
+        assert_reg(dut, Reg::R0, !values[i]);
     }
 }
 
 static void add_imm_one(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(99); pulse(dut);
-    dut->inst_i = dual(Op::ADD, Reg::R0, Imm::ONE); pulse(dut);
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == 100);
+    reset(dut);
+    exec(dut, load(99));
+    exec(dut, dual(Op::ADD, Reg::R0, Imm::ONE));
+    assert_reg(dut, Reg::R0, 100);
 }
 
 static void pi_imm(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = dual(
+    reset(dut);
+    exec(dut, dual(
         Op::ADD,
         Reg::ZERO,
         Imm::PI,
         Cond::ALWAYS,
         Shift(true, 32)
-    );
-    pulse(dut);
+    ));
 
     // Q (2.30) pi
     const uint32_t pi = 0xC90FDAA2;
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == pi);
+    assert_reg(dut, Reg::R0, pi);
 }
 
 static void one_over_two_pi_imm(DUT* dut) {
-    dut->reset_i = 1;
-    pulse(dut);
-    dut->reset_i = 0;
-
-    dut->inst_i = load(150); pulse(dut);
-    dut->inst_i = dual(
+    reset(dut);
+    exec(dut, load(150));
+    exec(dut, dual(
         Op::MUL,
         Reg::R0,
         Imm::ONE_OVER_TWO_PI,
         Cond::ALWAYS,
         Shift(true, 32)
-    );
-    pulse(dut);
+    ));
 
     // ((150 / (2 * pi)) % 1) * (2^32)
     const uint32_t expected = 0xDF8CC0A8;
-
-    dut->inst_i = write(Reg::ZERO, Reg::R0); pulse(dut);
-    assert(dut->w_write == expected);
+    assert_reg(dut, Reg::R0, expected);
 }
 
 int main(int argc, char** argv) {
