@@ -124,6 +124,25 @@ static void simple_loop(DUT* dut) {
     assert(run(dut, program) == 40);
 }
 
+static void fib(DUT* dut) {
+    const uint32_t iters = 11;
+    const uint32_t expected = 144;
+
+    const Inst program[] = {
+        load(1),
+        load(iters),
+
+        dual(Op::ADD, Reg::R1, Reg::ZERO, Cond::ALWAYS),
+        dual(Op::ADD, Reg::R2, Reg::R3, Cond::ALWAYS),
+        dual(Op::SUB, Reg::R2, Imm::ONE, true),
+
+        branch(Cond::NEZ, 3, true, false),
+        iupt(Reg::R1)
+    };
+
+    assert(run(dut, program) == expected);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -140,6 +159,7 @@ int main(int argc, char** argv) {
     load_and_iupt(dut);
     simple_add(dut);
     simple_loop(dut);
+    fib(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
