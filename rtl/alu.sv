@@ -226,7 +226,7 @@ module alu #(
         endcase
     end
 
-    always @(posedge clk_i) begin
+    always_ff @(posedge clk_i) begin
         if (reset_i) begin
             w_valid_o <= 0;
             w_addr_o <= 'X;
@@ -251,7 +251,7 @@ module alu #(
 
     wire set_flags = inst.data.dual.set_flags;
 
-    always @(posedge clk_i) begin
+    always_ff @(posedge clk_i) begin
         if (reset_i) begin
             flags_o <= 0;
             regs[0] <= 0;
@@ -369,14 +369,14 @@ module alu #(
 
             default begin
                 // TODO: Real handler.
-                $fatal("Invalid Instruction");
+                $error("Invalid Instruction");
                 i_result = 'X;
             end
         endcase
     end
 
     // Shifting the regs.
-    always @(posedge clk_i) begin
+    always_ff @(posedge clk_i) begin
         regs[`NUM_REGS-2:1] <= reset_i ? 0
             : (inst.keep_regs || !exec)
                 ? regs[`NUM_REGS-2:1]
@@ -387,7 +387,7 @@ module alu #(
     wire stalled = (op == ALU_OP_INTERRUPT) && exec;
     wire branching = (op == ALU_OP_BRANCH) && exec;
 
-    always @(posedge clk_i) begin
+    always_ff @(posedge clk_i) begin
         if (reset_i) begin
             pc <= 0;
         end else if (branching) begin
@@ -400,7 +400,7 @@ module alu #(
             pc <= pc + 1;
 
             if (pc == '1) begin
-                $fatal(1, "Program counter overflowed");
+                $error("Program counter overflowed");
             end
         end
     end

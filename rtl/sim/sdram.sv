@@ -95,25 +95,25 @@ module sdram_sim #(
                 init_state <= 3;
                 `assertEqual(1, precharge_all);
             end else if (cmd != SDRAM_CMD_NOP) begin
-                $fatal(1, "expected precharge");
+                $error("expected precharge");
             end
         end 3: begin
             if (cmd == SDRAM_CMD_REFRESH) begin
                 init_state <= 4;
             end else if (cmd != SDRAM_CMD_NOP) begin
-                $fatal(1, "expected refresh found: %d", cmd);
+                $error("expected refresh found: %d", cmd);
             end
         end 4: begin
             if (cmd == SDRAM_CMD_REFRESH) begin
                 init_state <= 5;
             end else if (cmd != SDRAM_CMD_NOP) begin
-                $fatal(1, "expected refresh found: %d", cmd);
+                $error("expected refresh found: %d", cmd);
             end
         end 5: begin
             if (cmd == SDRAM_CMD_LOADMODE) begin
                 init_state <= 6;
             end else if (cmd != SDRAM_CMD_NOP) begin
-                $fatal(1, "expected loadmode found: %d", cmd);
+                $error("expected loadmode found: %d", cmd);
             end
         end default: begin
         end
@@ -162,7 +162,7 @@ module sdram_sim #(
         rp_lats = 0;
     end
 
-    always @(posedge clk_i) begin
+    always_ff @(posedge clk_i) begin
         if (ref_lat != 0) ref_lat <= ref_lat - 1;
         if (mrd_lat != 0) mrd_lat <= mrd_lat - 1;
 
