@@ -15,6 +15,8 @@ using namespace inst;
 static uint32_t ns = 0;
 static VerilatedFstC* tfp;
 
+static uint32_t cycles = 0;
+
 static void init(DUT* dut) {
     dut->clk_i = 0;
 }
@@ -25,6 +27,7 @@ static void pulse(DUT* dut) {
 
     dut->eval();
     dut->clk_i = 1;
+    cycles++;
 
     if (dut->traceCapable) tfp->dump(ns);
     ns++;
@@ -37,6 +40,8 @@ static void reset(DUT* dut) {
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
+
+    cycles = 0;
 }
 
 static void load_inst(DUT* dut, Inst inst) {
@@ -98,6 +103,27 @@ static void simple_add(DUT* dut) {
     assert(run(dut, program) == 294 + 6);
 }
 
+static void simple_loop(DUT* dut) {
+    const Inst program[] = {
+        dual(Op::ADD, Reg::R1, Imm::ONE),
+        load(5),
+        dual(
+            Op::SUB,
+            Reg::R1, Reg::R0,
+            Shift(false, 3),
+            true,
+            Cond::ALWAYS,
+            Shift(),
+            false
+        ),
+
+        branch(Cond::NEZ, 3, true, false),
+        iupt(Reg::R1),
+    };
+
+    assert(run(dut, program) == 40);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -113,6 +139,7 @@ int main(int argc, char** argv) {
 
     load_and_iupt(dut);
     simple_add(dut);
+    simple_loop(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
