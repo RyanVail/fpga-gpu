@@ -19,6 +19,7 @@ enum Op : uint8_t {
     IADD = 0b1000,
     ISUB = 0b1001,
     IMUL = 0b1010,
+    SAVE = 0b1011,
 
     INTERRUPT = 0b1111,
 };
@@ -67,13 +68,23 @@ enum Reg : uint8_t {
 };
 
 enum Imm : uint8_t {
-    ONE = 0,
-    NEG_ONE = 1,
-    SQRT_2 = 2,
-    ONE_OVER_TWO_PI = 3,
-    PI = 4,
+    S0 = 0,
+    S1 = 1,
+    S2 = 2,
+    S3 = 3,
+    S4 = 4,
+    S5 = 5,
+    S6 = 6,
+    S7 = 7,
+
+    ONE = 8,
+    NEG_ONE = 9,
+    SQRT_2 = 10,
+    ONE_OVER_TWO_PI = 11,
+    PI = 12,
 };
 
+typedef Imm Saved;
 typedef uint32_t Inst;
 
 typedef struct Shift {
@@ -255,7 +266,7 @@ static Inst branch(
         | offset;
 }
 
-static Inst load (
+static Inst load(
     uint32_t immediate,
     Cond cond = Cond::ALWAYS,
     bool shift_regs = true
@@ -266,7 +277,25 @@ static Inst load (
         | ((uint32_t)immediate);
 }
 
-static Inst write (
+static Inst load(
+    Imm imm,
+    Cond cond = Cond::ALWAYS,
+    Shift shift = Shift(),
+    bool shift_regs = true
+) {
+    return dual(
+        Op::ADD,
+        Reg::ZERO,
+        imm,
+        Shift(),
+        false,
+        cond,
+        shift,
+        shift_regs
+    );
+}
+
+static Inst write(
     Cond cond,
     Reg addr,
     Reg source,
@@ -283,7 +312,7 @@ static Inst write (
         | offset;
 }
 
-static Inst write (
+static Inst write(
     Reg addr,
     Reg source,
     uint16_t offset = 0,
@@ -306,6 +335,63 @@ static Inst iupt(Reg reg = Reg::R0) {
 
 static Inst nop(bool shift_regs = false) {
     return dual(Op::ADD, Reg::ZERO, Reg::ZERO, Shift(), shift_regs);
+}
+
+static Inst save_intern(
+    Cond cond,
+    Saved dest,
+    bool src_immediate,
+    uint8_t src,
+    Shift shift,
+    bool shift_regs
+) {
+    return ((uint32_t)(!shift_regs) << 31)
+        | ((uint32_t)cond << 29)
+        | ((uint32_t)Op::SAVE << 25)
+        | ((uint32_t)dest << 22)
+        | ((uint32_t)src << 15)
+        | ((uint32_t)shift.right << 14)
+        | ((uint32_t)shift.bits << 9)
+        | ((uint32_t)false << 8)
+        | ((uint32_t)src_immediate << 7);
+}
+
+static Inst save(
+    Cond cond,
+    Saved dest,
+    Reg src,
+    Shift shift = Shift(),
+    bool shift_regs = false
+) {
+    return save_intern(cond, dest, false, src, shift, shift_regs);
+}
+
+static Inst save(
+    Saved dest,
+    Reg src,
+    Shift shift = Shift(),
+    bool shift_regs = false
+) {
+    return save(Cond::ALWAYS, dest, src, shift, shift_regs);
+}
+
+static Inst save(
+    Cond cond,
+    Saved dest,
+    Imm src,
+    Shift shift = Shift(),
+    bool shift_regs = false
+) {
+    return save_intern(cond, dest, true, src, shift, shift_regs);
+}
+
+static Inst save(
+    Saved dest,
+    Imm src,
+    Shift shift = Shift(),
+    bool shift_regs = false
+) {
+    return save(Cond::ALWAYS, dest, src, shift, shift_regs);
 }
 
 }

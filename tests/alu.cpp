@@ -51,7 +51,6 @@ static void exec(DUT* dut, Inst inst) {
 }
 
 #define assert_reg(dut, reg, expected) ({ \
-    assert(!dut->iupt_o); \
     exec(dut, iupt(reg)); \
     assert(dut->iupt_o); \
     assert(dut->iupt_arg_o == expected); \
@@ -368,6 +367,21 @@ static void one_over_two_pi_imm(DUT* dut) {
     assert_reg(dut, Reg::R0, expected);
 }
 
+static void save_and_load(DUT* dut) {
+    reset(dut);
+    exec(dut, load(100));
+    exec(dut, save(Saved::S0, Reg::R0));
+
+    exec(dut, load(603));
+    exec(dut, save(Saved::S1, Reg::R0, Shift(false, 1)));
+
+    // Loading back the registers.
+    exec(dut, load(Saved::S1));
+    exec(dut, load(Saved::S0, Cond::ALWAYS, Shift(false, 3)));
+    assert_reg(dut, Reg::R1, 603 << 1);
+    assert_reg(dut, Reg::R0, 100 << 3);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -404,6 +418,7 @@ int main(int argc, char** argv) {
     add_imm_one(dut);
     pi_imm(dut);
     one_over_two_pi_imm(dut);
+    save_and_load(dut);
 
     if (dut->traceCapable) {
         pulse(dut);

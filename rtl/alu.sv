@@ -10,6 +10,11 @@
 // The last register is always a constant zero register.
 `define NUM_REGS 32
 
+// The number of registers that can be saved.
+`define NUM_SAVED 8
+
+`define SAVED_INDEX_WIDTH $clog2(`NUM_SAVED)
+
 `define ALU_OP_WIDTH 4
 typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_ADD = 4'b0000,
@@ -23,6 +28,7 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_IADD = 4'b1000,
     ALU_OP_ISUB = 4'b1001,
     ALU_OP_IMUL = 4'b1010,
+    ALU_OP_SAVE = 4'b1011,
 
     ALU_OP_INTERRUPT = 4'b1111
 } alu_op_e;
@@ -103,6 +109,23 @@ typedef struct packed {
             logic [13:0] offset;
         } write;
 
+        struct packed {
+            logic [`SAVED_INDEX_WIDTH-1:0] dest;
+            logic [1:0] _0;
+            logic [`REG_INDEX_WIDTH-1:0] src;
+
+            // The bitwise shift to apply to `reg_1`.
+            alu_shift_e shift;
+            logic [4:0] shift_bits;
+
+            logic _1;
+
+            // Load an immediate value in place of `reg_1`.
+            logic immediate;
+
+            logic [6:0] _2;
+        } save;
+
         logic [24:0] immediate;
     } data;
 } alu_inst_s;
@@ -114,8 +137,7 @@ module alu #(
     // The width of a memory address.
     parameter mem_addr_width = 16,
 
-    parameter [`NUM_REGS-1:0][`REG_WIDTH*2-1:0] immediates = '{
-        0, 0, 0, 0, 0, 0, 0, 0,
+    parameter [`NUM_REGS-`NUM_SAVED-1:0][`REG_WIDTH*2-1:0] immediates = '{
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0,
@@ -180,6 +202,7 @@ module alu #(
         ? 0 : regs[inst.data.triple.reg_2];
 
     logic [`NUM_REGS-2:0][width-1:0] regs;
+    logic [`NUM_SAVED-1:0][width-1:0] saved;
 
     // The width of intermediate values.
     localparam i_width = width * 2;
@@ -248,6 +271,12 @@ module alu #(
         end
     end
 
+    always_ff @(posedge clk_i) begin
+        if (op == ALU_OP_SAVE) begin
+            saved[inst.data.save.dest] <= width'(i_value_1);
+        end
+    end
+
     wire set_flags = inst.data.dual.set_flags;
 
     always_ff @(posedge clk_i) begin
@@ -295,7 +324,11 @@ module alu #(
     logic [i_width-1:0] i_src_value_1;
     always_comb begin
         if (inst.data.triple.immediate) begin
-            i_src_value_1 = immediates[inst.data.dual.reg_1];
+            if (inst.data.dual.reg_1 < `NUM_SAVED) begin
+                i_src_value_1 = i_width'(saved[inst.data.dual.reg_1]);
+            end else begin
+                i_src_value_1 = immediates[inst.data.dual.reg_1 - `NUM_SAVED];
+            end
         end else begin
             i_src_value_1 = {
                 {width{is_signed & reg_value_1[width-1]}},
@@ -358,6 +391,7 @@ module alu #(
             end
 
             ALU_OP_BRANCH,
+            ALU_OP_SAVE,
             ALU_OP_INTERRUPT: begin
                 i_result = i_width'(regs[0]);
             end
