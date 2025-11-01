@@ -15,15 +15,6 @@ using namespace inst;
 static uint32_t ns = 0;
 static VerilatedFstC* tfp;
 
-static constexpr uint32_t addr_width = 16;
-static constexpr uint32_t line_width = 64;
-static constexpr uint32_t depth = 64;
-
-static constexpr uint64_t one = 65536;
-
-// Max delta in units of one.
-static constexpr uint64_t max_delta = 1000;
-
 static void init(DUT* dut) {
     dut->clk_i = 0;
 }
@@ -43,12 +34,15 @@ static void pulse(DUT* dut) {
 }
 
 static void reset(DUT* dut) {
+    dut->inst_i = nop();
+
     dut->reset_i = 1;
     pulse(dut);
     dut->reset_i = 0;
 
-    assert(dut->w_valid_o == 0);
-    assert(dut->pc == 0);
+    assert(!dut->w_valid_o);
+    assert(dut->pc_o == 0);
+    assert(!dut->iupt_o);
 }
 
 static void exec(DUT* dut, Inst inst) {
@@ -57,16 +51,51 @@ static void exec(DUT* dut, Inst inst) {
 }
 
 #define assert_reg(dut, reg, expected) ({ \
-    assert(dut->w_valid_o == 0); \
-    exec(dut, write(Reg::ZERO, reg)); \
-    assert(dut->w_valid_o); \
-    assert(dut->w_addr == 0); \
-    assert(dut->w_write == expected); \
+    assert(!dut->iupt_o); \
+    exec(dut, iupt(reg)); \
+    assert(dut->iupt_o); \
+    assert(dut->iupt_arg_o == expected); \
 })
 
 #define assert_flag(dut, flag, expected) assert( \
-    (bool)(dut->flags & flag) == expected \
+    (bool)(dut->flags_o & flag) == expected \
 )
+
+static void load_and_iupt(DUT* dut) {
+    reset(dut);
+
+    exec(dut, load(26));
+    exec(dut, iupt(Reg::R0));
+
+    for (uint32_t i = 0; i < 8; i++) {
+        assert(dut->iupt_o);
+        assert(dut->iupt_arg_o == 26);
+        assert(dut->pc_o == 1);
+    }
+
+    exec(dut, load(2));
+    assert(!dut->iupt_o);
+    assert(dut->pc_o == 2);
+}
+
+static void cond_iupt(DUT* dut) {
+    reset(dut);
+
+    exec(dut, load(64820));
+    exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
+    exec(dut, iupt(Cond::EQZ, Reg::R0));
+    assert(!dut->iupt_o);
+    assert(dut->pc_o == 3);
+
+    exec(dut, load(0));
+    exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
+    exec(dut, iupt(Cond::EQZ, Reg::R2));
+    for (uint32_t i = 0; i < 3; i++) {
+        assert(dut->iupt_o);
+        assert(dut->iupt_arg_o == 64820);
+        assert(dut->pc_o == 5);
+    }
+}
 
 static void eqz_flag(DUT* dut) {
     reset(dut);
@@ -118,16 +147,16 @@ static void cond_branch(DUT* dut) {
 
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::ZERO, true));
     exec(dut, branch(Cond::EQZ, 100));
-    assert(dut->pc == 1 + 100);
+    assert(dut->pc_o == 1 + 100);
 
     exec(dut, load(10));
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
 
     exec(dut, branch(Cond::EQZ, 20, true));
-    assert(dut->pc == 1 + 100 + 3);
+    assert(dut->pc_o == 1 + 100 + 3);
 
     exec(dut, branch(Cond::NEZ, 20, true));
-    assert(dut->pc == 1 + 100 + 3 - 20);
+    assert(dut->pc_o == 1 + 100 + 3 - 20);
 }
 
 static void cond_load(DUT* dut) {
@@ -165,8 +194,16 @@ static void write_offset(DUT* dut) {
     exec(dut, write(Reg::R1, Reg::R0, offset));
 
     assert(dut->w_valid_o);
-    assert(dut->w_addr == addr + offset);
-    assert(dut->w_write == value); 
+    assert(dut->w_addr_o == addr + offset);
+    assert(dut->w_write_o == value); 
+}
+
+static void cond_write(DUT* dut) {
+    reset(dut);
+
+    exec(dut, load(3));
+    exec(dut, write(Cond::EQZ, Reg::R1, Reg::ZERO, 0));
+    assert(!dut->w_valid_o);
 }
 
 static void add_no_reg_shift(DUT* dut) {
@@ -334,12 +371,15 @@ int main(int argc, char** argv) {
         tfp->open("build/waves/" STR(DUT) ".fst");
     }
 
+    load_and_iupt(dut);
+    cond_iupt(dut);
     eqz_flag(dut);
     neg_flag(dut);
     cond_branch(dut);
     cond_load(dut);
     mul_high(dut);
     write_offset(dut);
+    cond_write(dut);
     add_no_reg_shift(dut);
     add_imm_shift(dut);
     add_reg_shift(dut);

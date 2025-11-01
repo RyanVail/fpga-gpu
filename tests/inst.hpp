@@ -19,6 +19,8 @@ enum Op : uint8_t {
     IADD = 0b1000,
     ISUB = 0b1001,
     IMUL = 0b1010,
+
+    INTERRUPT = 0b1111,
 };
 
 enum Cond : uint8_t {
@@ -289,6 +291,21 @@ static Inst write (
     bool shift_regs = true
 ) {
     return write(Cond::ALWAYS, addr, source, offset, negative, shift_regs);
+}
+
+static Inst iupt(Cond cond, Reg reg, bool shift_regs = false) {
+    return ((uint32_t)(!shift_regs) << 31)
+        | ((uint32_t)cond << 29)
+        | ((uint32_t)inst::Op::INTERRUPT << 25)
+        | ((uint32_t)reg << 20);
+}
+
+static Inst iupt(Reg reg) {
+    return iupt(Cond::ALWAYS, reg);
+}
+
+static Inst nop(bool shift_regs = false) {
+    return dual(Op::ADD, Reg::ZERO, Reg::ZERO, Shift(), shift_regs);
 }
 
 }

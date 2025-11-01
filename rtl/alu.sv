@@ -22,7 +22,9 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_MEM_WRITE = 4'b0111,
     ALU_OP_IADD = 4'b1000,
     ALU_OP_ISUB = 4'b1001,
-    ALU_OP_IMUL = 4'b1010
+    ALU_OP_IMUL = 4'b1010,
+
+    ALU_OP_INTERRUPT = 4'b1111
 } alu_op_e;
 
 `define ALU_SHIFT_WIDTH 1
@@ -43,7 +45,7 @@ typedef enum logic [`ALU_COND_WIDTH-1:0] {
 typedef struct packed {
     logic neg;
     logic zero;
-} alu_flags;
+} alu_flags_s;
 
 typedef struct packed {
     logic keep_regs;
@@ -138,18 +140,29 @@ module alu #(
 
     input [`INST_WIDTH-1:0] inst_i,
 
-    output logic [pc_width-1:0] pc,
+    output [pc_width-1:0] pc_o,
 
-    // TODO: This is just used to get output from the alu during tests right
-    // now actually implement it.
+    output alu_flags_s flags_o,
+
     output logic w_valid_o,
-    output logic [mem_addr_width-1:0] w_addr,
-    output logic [width-1:0] w_write,
+    output logic [mem_addr_width-1:0] w_addr_o,
+    output logic [`REG_WIDTH-1:0] w_write_o,
 
-    output alu_flags flags
+    // High when an interrupt is raised.
+    output iupt_o,
+
+    // The argument supplied to the interrupt handler.
+    output [`REG_WIDTH-1:0] iupt_arg_o
 );
     // The width of a register.
     localparam width = `REG_WIDTH;
+
+    logic [pc_width-1:0] pc;
+    assign pc_o = pc;
+
+    // TODO: There has to be a way to exit the interrupt.
+    assign iupt_o = (op == ALU_OP_INTERRUPT && exec);
+    assign iupt_arg_o = reg_value_0;
 
     wire alu_inst_s inst = alu_inst_s'(inst_i);
     wire alu_op_e op = inst.op;
@@ -206,37 +219,33 @@ module alu #(
     always_comb begin
         casez (inst.cond)
             ALU_COND_ALWAYS: exec = 1;
-            ALU_COND_NEZ: exec = !flags.zero;
-            ALU_COND_EQZ: exec = flags.zero;
-            ALU_COND_NEG: exec = flags.neg;
+            ALU_COND_NEZ: exec = !flags_o.zero;
+            ALU_COND_EQZ: exec = flags_o.zero;
+            ALU_COND_NEG: exec = flags_o.neg;
             default: exec = 1;
         endcase
-
-        if (op == ALU_OP_MEM_WRITE && w_valid_o) begin
-            exec = 0;
-        end
     end
 
     always @(posedge clk_i) begin
         if (reset_i) begin
             w_valid_o <= 0;
-            w_addr <= 'X;
-            w_write <= 'X;
-        end else if (op == ALU_OP_MEM_WRITE) begin
+            w_addr_o <= 'X;
+            w_write_o <= 'X;
+        end else if (op == ALU_OP_MEM_WRITE && exec) begin
             w_valid_o <= 1;
 
-            w_write <= reg_value_1;
+            w_write_o <= reg_value_1;
             if (inst.data.write.negative) begin
-                w_addr <= mem_addr_width'(reg_value_0)
+                w_addr_o <= mem_addr_width'(reg_value_0)
                     - mem_addr_width'(inst.data.write.offset);
             end else begin
-                w_addr <= mem_addr_width'(reg_value_0)
+                w_addr_o <= mem_addr_width'(reg_value_0)
                     + mem_addr_width'(inst.data.write.offset);
             end
         end else begin
             w_valid_o <= w_valid_o;
-            w_addr <= w_addr;
-            w_write <= w_write;
+            w_addr_o <= w_addr_o;
+            w_write_o <= w_write_o;
         end
     end
 
@@ -244,22 +253,22 @@ module alu #(
 
     always @(posedge clk_i) begin
         if (reset_i) begin
-            flags <= 0;
+            flags_o <= 0;
             regs[0] <= 0;
         end else if (!exec) begin
-            flags <= flags;
+            flags_o <= flags_o;
             regs[0] <= regs[0];
         end else if (is_dual) begin
             if (set_flags) begin
-                flags.zero <= width'(i_shifted) == 0;
-                flags.neg <= i_shifted[width-1];
+                flags_o.zero <= width'(i_shifted) == 0;
+                flags_o.neg <= i_shifted[width-1];
             end else begin
-                flags <= flags;
+                flags_o <= flags_o;
             end
 
             regs[0] <= width'(i_shifted);
         end else begin
-            flags <= flags;
+            flags_o <= flags_o;
             regs[0] <= width'(i_result);
         end
     end
@@ -349,7 +358,8 @@ module alu #(
                 i_result = i_width'(inst.data.immediate);
             end
 
-            ALU_OP_BRANCH: begin
+            ALU_OP_BRANCH,
+            ALU_OP_INTERRUPT: begin
                 i_result = i_width'(regs[0]);
             end
 
@@ -373,6 +383,8 @@ module alu #(
                 : regs[`NUM_REGS-3:0];
     end
 
+    // TODO: This should also stall for memory.
+    wire stalled = (op == ALU_OP_INTERRUPT) && exec;
     wire branching = (op == ALU_OP_BRANCH) && exec;
 
     always @(posedge clk_i) begin
@@ -384,7 +396,7 @@ module alu #(
             end else begin
                 pc <= pc + pc_width'(inst.data.branch.offset);
             end
-        end else begin
+        end else if (!stalled) begin
             pc <= pc + 1;
         end
     end
