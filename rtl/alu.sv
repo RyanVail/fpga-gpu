@@ -140,7 +140,7 @@ module alu #(
 
     input [`INST_WIDTH-1:0] inst_i,
 
-    output [pc_width-1:0] pc_o,
+    output logic [pc_width-1:0] pc_o,
 
     output alu_flags_s flags_o,
 
@@ -158,7 +158,6 @@ module alu #(
     localparam width = `REG_WIDTH;
 
     logic [pc_width-1:0] pc;
-    assign pc_o = pc;
 
     // TODO: There has to be a way to exit the interrupt.
     assign iupt_o = (op == ALU_OP_INTERRUPT && exec);
@@ -387,21 +386,29 @@ module alu #(
     wire stalled = (op == ALU_OP_INTERRUPT) && exec;
     wire branching = (op == ALU_OP_BRANCH) && exec;
 
-    always_ff @(posedge clk_i) begin
+    // `pc_o` is wired to the next pc so the control unit doesn't need to wait
+    // an extra cycle.
+    always_comb begin
         if (reset_i) begin
-            pc <= 0;
+            pc_o = 0;
         end else if (branching) begin
             if (inst.data.branch.negative) begin
-                pc <= pc - pc_width'(inst.data.branch.offset);
+                pc_o = pc - pc_width'(inst.data.branch.offset);
             end else begin
-                pc <= pc + pc_width'(inst.data.branch.offset);
+                pc_o = pc + pc_width'(inst.data.branch.offset);
             end
         end else if (!stalled) begin
-            pc <= pc + 1;
+            pc_o = pc + 1;
 
             if (pc == '1) begin
                 $error("Program counter overflowed");
             end
+        end else begin
+            pc_o = pc;
         end
+    end
+
+    always_ff @(posedge clk_i) begin
+        pc <= pc_o;
     end
 endmodule

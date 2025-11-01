@@ -61,6 +61,15 @@ static void exec(DUT* dut, Inst inst) {
     (bool)(dut->flags_o & flag) == expected \
 )
 
+#define assert_pc(dut, expected) ({ \
+    const Inst old = dut->inst_i; \
+    dut->inst_i = nop(); \
+    dut->eval(); \
+    assert(dut->pc_o == (expected) + 1); \
+    dut->inst_i = old; \
+    dut->eval(); \
+})
+
 static void load_and_iupt(DUT* dut) {
     reset(dut);
 
@@ -70,12 +79,12 @@ static void load_and_iupt(DUT* dut) {
     for (uint32_t i = 0; i < 8; i++) {
         assert(dut->iupt_o);
         assert(dut->iupt_arg_o == 26);
-        assert(dut->pc_o == 1);
+        assert_pc(dut, 1);
     }
 
     exec(dut, load(2));
     assert(!dut->iupt_o);
-    assert(dut->pc_o == 2);
+    assert_pc(dut, 2);
 }
 
 static void cond_iupt(DUT* dut) {
@@ -85,7 +94,7 @@ static void cond_iupt(DUT* dut) {
     exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
     exec(dut, iupt(Cond::EQZ, Reg::R0));
     assert(!dut->iupt_o);
-    assert(dut->pc_o == 3);
+    assert_pc(dut, 3);
 
     exec(dut, load(0));
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
@@ -93,7 +102,7 @@ static void cond_iupt(DUT* dut) {
     for (uint32_t i = 0; i < 3; i++) {
         assert(dut->iupt_o);
         assert(dut->iupt_arg_o == 64820);
-        assert(dut->pc_o == 5);
+        assert_pc(dut, 5);
     }
 }
 
@@ -147,16 +156,17 @@ static void cond_branch(DUT* dut) {
 
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::ZERO, true));
     exec(dut, branch(Cond::EQZ, 100));
-    assert(dut->pc_o == 1 + 100);
+    assert_pc(dut, 1 + 100);
 
     exec(dut, load(10));
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
+    assert_pc(dut, 1 + 100 + 2);
 
     exec(dut, branch(Cond::EQZ, 20, true));
-    assert(dut->pc_o == 1 + 100 + 3);
+    assert_pc(dut, 1 + 100 + 3);
 
     exec(dut, branch(Cond::NEZ, 20, true));
-    assert(dut->pc_o == 1 + 100 + 3 - 20);
+    assert_pc(dut, 1 + 100 + 3 - 20);
 }
 
 static void cond_load(DUT* dut) {
