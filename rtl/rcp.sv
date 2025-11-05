@@ -7,12 +7,17 @@ module rcp #(
 ) (
     input clk_i,
 
-    input logic v_i,
+    input v_i,
     input [width-1:0] a_i,
 
     output logic [width-1:0] r_o,
     output logic ready_o
 );
+    /* verilator lint_off UNUSEDPARAM */
+    // The latency of this module in cycles.
+    localparam lat = 1;
+    /* verilator lint_on UNUSEDPARAM */
+
     wire [iters-1:0][width-1:0] ests;
 
     // Determining the floored log2 of the input.
@@ -50,9 +55,8 @@ module rcp #(
         end
     endgenerate
 
-    assign r_o = ests[iters-1];
-
     always_ff @(posedge clk_i) begin
+        r_o <= ests[iters-1];
         ready_o <= v_i;
     end
 

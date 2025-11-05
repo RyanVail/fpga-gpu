@@ -2,6 +2,7 @@
 
 #define _STR(a) #a
 #define STR(a) _STR(a)
+#define STRICT_RCP true
 
 #include "Valu.h"
 #include "verilated.h"
@@ -382,6 +383,41 @@ static void save_and_load(DUT* dut) {
     assert_reg(dut, Reg::R0, 100 << 3);
 }
 
+static void simple_rcp(DUT* dut) {
+    // (1.0 / 7.0) * (1 << 32)
+    const uint32_t expected = 613566756;
+
+    reset(dut);
+    exec(dut, load(7));
+    exec(dut, dual(Op::RCP, Reg::ZERO, Reg::R0, Shift(false, 0)));
+    exec(dut, nop(true));
+    assert_reg(dut, Reg::R1, expected);
+}
+
+static void simple_div(DUT* dut) {
+    const uint32_t numerator = 14;
+    const uint32_t denominator = 3;
+    const uint32_t whole_bits = 9;
+
+    // (14.0 / 3.0) * (1 << (32 - 9))
+    const uint32_t expected = 39146837;
+
+    reset(dut);
+    exec(dut, load(numerator));
+    exec(dut, load(denominator));
+    exec(dut, dual(Op::RCP, Reg::ZERO, Reg::R0, Shift(false, 0)));
+    exec(dut, nop(true));
+    exec(dut, dual(
+        Op::MUL,
+        Reg::R1, Reg::R3,
+        false,
+        Shift(true, whole_bits)
+    ));
+    assert_reg(dut, Reg::R0, expected);
+    // TODO: Remove.
+    //printf("%f\n", (double)dut->iupt_arg_o / (((uint64_t)1 << (32 - whole_bits))));
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -419,6 +455,11 @@ int main(int argc, char** argv) {
     pi_imm(dut);
     one_over_two_pi_imm(dut);
     save_and_load(dut);
+
+    if (STRICT_RCP) {
+        simple_rcp(dut);
+        simple_div(dut);
+    }
 
     if (dut->traceCapable) {
         pulse(dut);

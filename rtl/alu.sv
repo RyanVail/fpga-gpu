@@ -1,4 +1,4 @@
-//`include "rcp.sv"
+`include "rcp.sv"
 
 `define INST_WIDTH 32
 `define REG_INDEX_WIDTH 5
@@ -147,15 +147,11 @@ module alu #(
         64'hB504F333F9DE6484, // (Q 1.63) sqrt(2)
         64'hFFFFFFFFFFFFFFFF, // -1
         64'h0000000000000001  //  1
-    }
-
-    // TODO: Add RCP.
-    // The bit precision of the reciprocal instruction.
-    //parameter rcp_width = 16,
+    },
 
     // The number of iterations of Newton's method to use for the reciprocal
     // instruction.
-    //parameter rcp_iters = 3
+    parameter rcp_iters = 7
 ) (
     input clk_i,
     input reset_i,
@@ -364,7 +360,6 @@ module alu #(
             end ALU_OP_MUL, ALU_OP_IMUL: begin
                 i_result = i_value_0 * i_value_1;
             end ALU_OP_RCP: begin
-                // TODO: Finish.
                 i_result = i_width'(regs[`NUM_REGS-2]);
             end ALU_OP_CLAMP: begin
                 if (is_signed) begin
@@ -408,13 +403,36 @@ module alu #(
         endcase
     end
 
+    wire rcp_v_i = (op == ALU_OP_RCP) && exec;
+    logic [width-1:0] rcp_r_o;
+    logic rcp_ready_o;
+
+    rcp #(
+        .width(width),
+        .iters(rcp_iters)
+    ) rcp (
+        .clk_i(clk_i),
+        .v_i(rcp_v_i),
+        .a_i(width'(i_value_1)),
+        .r_o(rcp_r_o),
+        .ready_o(rcp_ready_o)
+    );
+
     // Shifting the regs.
-    always_ff @(posedge clk_i) begin
-        regs[`NUM_REGS-2:1] <= reset_i ? 0
-            : (inst.keep_regs || !exec)
-                ? regs[`NUM_REGS-2:1]
-                : regs[`NUM_REGS-3:0];
-    end
+    genvar i;
+    generate for (i = 1; i < `NUM_REGS-1; i=i+1) begin
+        always_ff @(posedge clk_i) begin
+            if (reset_i) begin
+                regs[i] <= 0;
+            end else if (i == rcp.lat && rcp_ready_o) begin
+                regs[i] <= rcp_r_o;
+            end else begin
+                regs[i] <= (inst.keep_regs || !exec)
+                    ? regs[i]
+                    : regs[i-1];
+            end
+        end
+    end endgenerate
 
     // TODO: This should also stall for memory.
     wire stalled = (op == ALU_OP_INTERRUPT) && exec;
