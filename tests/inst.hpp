@@ -174,9 +174,8 @@ static Inst neg(
     Shift shift = Shift(),
     bool shift_regs = true
 ) {
-    // TODO: Should be signed.
     return dual(
-        Op::SUB, Reg::ZERO, a, Shift(), set_flags, cond, shift, shift_regs
+        Op::ISUB, Reg::ZERO, a, Shift(), set_flags, cond, shift, shift_regs
     );
 }
 
