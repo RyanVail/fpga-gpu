@@ -52,7 +52,14 @@ module dcache #(
 );
     `declare_dcache_line(addr_width, line_width);
 
-    dcache_line_s [depth-1:0] cache;
+    // The data of the cache lines.
+    logic [line_width-1:0] datas [depth-1:0];
+
+    // The tags of the cache lines.
+    logic [addr_width-1:0] tags [depth-1:0];
+
+    /// The dirty flags of the cache lines.
+    logic [depth-1:0] dirty_flags;
 
     // The set this cache line falls within.
     localparam set_width = $clog2(depth);
@@ -81,19 +88,19 @@ module dcache #(
 
     // Reading the line or reading the ejected line.
     always_ff @(posedge clk_i) begin
-        if (r_valid_i || w_valid_i) line <= cache[set];
-    end
-
-    // The line being written.
-    dcache_line_s write_line;
-    always_comb begin
-        write_line.dirty = dirty_i;
-        write_line.tag = addr_i;
-        write_line.data = write_i;
+        if (r_valid_i || w_valid_i) begin
+            line.dirty <= dirty_flags[set];
+            line.tag <= tags[set];
+            line.data <= datas[set];
+        end
     end
 
     // Writing the line.
     always_ff @(posedge clk_i) begin
-        if (w_valid_i) cache[set] <= write_line;
+        if (w_valid_i) begin
+            dirty_flags[set] <= dirty_i;
+            tags[set] <= addr_i;
+            datas[set] <= write_i;
+        end
     end
 endmodule
