@@ -3,8 +3,11 @@
 `include "utils.sv"
 
 module mem_ctrl #(
-    // The bit width of an address of a cache line.
+    // The bit width of a byte address.
     parameter addr_width,
+
+    // The bit width of a line address.
+    parameter line_addr_width = addr_width - 3,
 
     // The bit width of a cache line.
     parameter line_width,
@@ -59,9 +62,11 @@ module mem_ctrl #(
 
     wire dcache_dirty = w_valid_i;
 
+    localparam line_bytes = $clog2(line_width) - 3;
+
     wire [addr_width-1:0] dcache_addr = (r_valid_i | w_valid_i)
         ? addr_i
-        : saved_addr;
+        : {saved_addr, {line_bytes{'0}}};
 
     wire dcache_write_valid = w_valid_i | (reading & read_finished);
 
@@ -69,8 +74,15 @@ module mem_ctrl #(
     assign dcache_write = w_valid_i ? write_i : saved_line;
 
     logic ejected_valid;
-    logic [addr_width-1:0] ejected_addr;
+    logic [line_addr_width-1:0] ejected_addr;
     logic [line_width-1:0] ejected_data;
+
+    dcache_data_size_e dcache_read_size;
+    dcache_data_size_e dcache_write_size;
+
+    // TODO: Export support for this.
+    assign dcache_read_size = DCACHE_DATA_64_BITS;
+    assign dcache_write_size = DCACHE_DATA_64_BITS;
 
     dcache #(
         .addr_width(addr_width),
@@ -83,8 +95,10 @@ module mem_ctrl #(
         .r_valid_o(dcache_r_valid),
         .r_miss_o(dcache_r_miss),
         .read_o(dcache_read),
+        .r_size_i(dcache_read_size),
         .w_valid_i(dcache_write_valid),
         .write_i(dcache_write),
+        .w_size_i(dcache_write_size),
         .dirty_i(dcache_dirty),
         .ejected_valid_o(ejected_valid),
         .ejected_addr_o(ejected_addr),
@@ -154,7 +168,7 @@ module mem_ctrl #(
     wire read_finished = started_reading && block_index == 0;
 
     logic [blocks_per_line-1:0][bus_width-1:0] saved_line;
-    logic [addr_width-1:0] saved_addr;
+    logic [line_addr_width-1:0] saved_addr;
 
     wire r_valid_non_miss = dcache_r_valid & !dcache_r_miss;
     assign r_valid_o = r_valid_non_miss | (reading & read_finished);
@@ -219,7 +233,7 @@ module mem_ctrl #(
         end
 
         if (r_valid_i) begin
-            saved_addr <= addr_i;
+            saved_addr <= addr_i[addr_width-1:line_bytes];
         end
     end
 endmodule

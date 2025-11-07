@@ -125,7 +125,7 @@ static void rand_read_writes(DUT* dut) {
         dut->w_valid_i = 1;
 
         values[i] = value;
-        dut->addr_i = i;
+        dut->addr_i = i * 8;
         dut->write_i = value;
 
         pulse(dut);
@@ -143,7 +143,7 @@ static void rand_read_writes(DUT* dut) {
 
         // Reading.
         if (rw == 0) {
-            dut->addr_i = addr;
+            dut->addr_i = addr * 8;
             dut->r_valid_i = 1;
 
             pulse(dut);
@@ -159,7 +159,7 @@ static void rand_read_writes(DUT* dut) {
             values[addr] = value;
 
             dut->w_valid_i = 1;
-            dut->addr_i = addr;
+            dut->addr_i = addr * 8;
             dut->write_i = value;
 
             pulse(dut);
@@ -173,7 +173,7 @@ static void rand_read_writes(DUT* dut) {
 
     // Reading back the values.
     for (size_t i = 0; i <= max_addr; i++) {
-        dut->addr_i = i;
+        dut->addr_i = i * 8;
         dut->r_valid_i = 1;
 
         pulse(dut);

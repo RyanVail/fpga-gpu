@@ -6,9 +6,12 @@
 #include "Vdcache.h"
 #include "verilated.h"
 #include "verilated_fst_c.h"
+#include "dcache.hpp"
 #include <cassert>
 #include <cstdint>
 #include <random>
+
+using namespace dcache;
 
 static uint32_t ns = 0;
 static VerilatedFstC* tfp;
@@ -35,60 +38,56 @@ static void pulse(DUT* dut) {
     dut->clk_i = 0;
 }
 
-static void write_read(DUT* dut) {
-    init(dut);
-
+static void write(
+    DUT* dut,
+    DataSize size,
+    uint16_t addr,
+    uint64_t data,
+    bool dirty = false
+) {
     dut->r_valid_i = 0;
-
     dut->w_valid_i = 1;
-    dut->addr_i = 0;
-    dut->write_i = 25;
-
+    dut->dirty_i = (uint8_t)dirty;
+    dut->w_size_i = size;
+    dut->addr_i = addr;
+    dut->write_i = data;
     pulse(dut);
-    dut->w_valid_i = 0;
-    pulse(dut);
 
-    dut->w_valid_i = 0;
+    assert(!dut->r_valid_o);
+}
+
+static uint64_t read(DUT* dut, DataSize size, uint16_t addr) {
     dut->r_valid_i = 1;
-
+    dut->w_valid_i = 0;
+    dut->r_size_i = size;
+    dut->addr_i = addr;
     pulse(dut);
-    assert(dut->r_valid_o);
-    assert(dut->read_o == 25);
 
-    dut->final();
+    assert(dut->r_valid_o);
+    assert(!dut->ejected_valid_o);
+    return dut->read_o;
+}
+
+static void write_read(DUT* dut) {
+    write(dut, DATA_64_BITS, 0, 25);
+    assert(read(dut, DATA_64_BITS, 0) == 25);
 }
 
 static void dirty_write(DUT* dut) {
-    init(dut);
-
-    dut->r_valid_i = 0;
-    dut->w_valid_i = 1;
-    dut->addr_i = 0;
-    dut->write_i = 5;
-    dut->dirty_i = 1;
-
-    pulse(dut);
-
-    dut->addr_i = 64;
-    dut->write_i = 25;
-    dut->dirty_i = 0;
-
+    write(dut, DATA_64_BITS, 0, 5, true);
     assert(!dut->ejected_valid_o);
 
-    pulse(dut);
-
-    dut->w_valid_i = 0;
-
+    write(dut, DATA_64_BITS, 64 * 8, 25, true);
     assert(dut->ejected_valid_o);
-    assert(!dut->ejected_addr_o);
+    assert(dut->ejected_addr_o == 0);
     assert(dut->ejected_o == 5);
+
+    assert(read(dut, DATA_64_BITS, 64 * 8) == 25);
 }
 
 // TODO: This should also be testing for uncached writes and ejections too but
 // that would require more simulated state within C++.
 static void rand_cached_writes(DUT* dut) {
-    init(dut);
-
     static_assert(line_width == 64);
     constexpr uint64_t max_value = UINT64_MAX;
     constexpr size_t max_addr = depth;
@@ -113,9 +112,7 @@ static void rand_cached_writes(DUT* dut) {
         const uint64_t value = value_dist(gen);
 
         values[i] = value;
-        dut->addr_i = i;
-        dut->write_i = value;
-        pulse(dut);
+        write(dut, DATA_64_BITS, i * 8, value);
     }
 
     // Waiting for the writes to finish.
@@ -130,14 +127,7 @@ static void rand_cached_writes(DUT* dut) {
         assert(!dut->ejected_valid_o);
 
         values[addr] = value;
-
-        dut->w_valid_i = 1;
-        dut->addr_i = addr;
-        dut->write_i = value;
-
-        pulse(dut);
-
-        dut->w_valid_i = 0;
+        write(dut, DATA_64_BITS, addr * 8, value);
     }
 
     // Waiting for the writes to finish.
@@ -147,15 +137,20 @@ static void rand_cached_writes(DUT* dut) {
 
     // Reading back the values.
     for (size_t i = 0; i < max_addr; i++) {
-        dut->addr_i = i;
-        dut->r_valid_i = 1;
-
-        pulse(dut);
-        dut->r_valid_i = 0;
-
-        assert(dut->r_valid_o);
-        assert(dut->read_o == values[i]);
+        assert(read(dut, DATA_64_BITS, i * 8) == values[i]);
     }
+}
+
+static void mixed_size_write_read(DUT* dut) {
+    const uint16_t first = (3 << 8) | 25;
+    const uint8_t second = 61;
+    write(dut, DATA_16_BITS, 0, first);
+    write(dut, DATA_8_BITS, 2, second);
+
+    assert(read(dut, DATA_16_BITS, 0) == first);
+    assert(read(dut, DATA_8_BITS, 0) == (first & 255));
+    assert(read(dut, DATA_8_BITS, 1) == (first >> 8));
+    assert(read(dut, DATA_8_BITS, 2) == second);
 }
 
 int main(int argc, char** argv) {
@@ -171,9 +166,14 @@ int main(int argc, char** argv) {
         tfp->open("build/waves/" STR(DUT) ".fst");
     }
 
+    init(dut);
     write_read(dut);
+
+    // TODO: Fix these.
     dirty_write(dut);
     rand_cached_writes(dut);
+
+    mixed_size_write_read(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
