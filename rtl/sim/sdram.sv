@@ -121,7 +121,7 @@ module sdram_sim #(
 
     typedef logic [col_width-1:0][bus_width-1:0] row_s;
 
-    row_s [banks-1:0][rows-1:0] data;
+    row_s [rows-1:0] data[banks];
 
     row_s [banks-1:0] loaded;
     logic [banks-1:0][row_addr_width-1:0] loaded_rows;
@@ -152,7 +152,10 @@ module sdram_sim #(
     logic [banks-1:0][$clog2(t_rp_lat)-1:0] rp_lats;
 
     initial begin
-        data = 0;
+        for (int i = 0; i < banks; i=i+1) begin
+            data[i] = 0;
+        end
+
         is_loaded = 0;
         ref_lat = 0;
         mrd_lat = 0;
