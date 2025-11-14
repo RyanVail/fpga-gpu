@@ -57,7 +57,7 @@ module mem_ctrl #(
     inout [bus_width-1:0] dq_io
 );
     logic dcache_r_valid;
-    logic dcache_r_miss;
+    logic dcache_miss;
     logic [line_width-1:0] dcache_read;
 
     wire dcache_dirty = w_valid_i;
@@ -93,7 +93,7 @@ module mem_ctrl #(
         .addr_i(dcache_addr),
         .r_valid_i(r_valid_i),
         .r_valid_o(dcache_r_valid),
-        .r_miss_o(dcache_r_miss),
+        .miss_o(dcache_miss),
         .read_o(dcache_read),
         .r_size_i(dcache_read_size),
         .w_valid_i(dcache_write_valid),
@@ -170,7 +170,7 @@ module mem_ctrl #(
     logic [blocks_per_line-1:0][bus_width-1:0] saved_line;
     logic [line_addr_width-1:0] saved_addr;
 
-    wire r_valid_non_miss = dcache_r_valid & !dcache_r_miss;
+    wire r_valid_non_miss = dcache_r_valid & !dcache_miss;
     assign r_valid_o = r_valid_non_miss | (reading & read_finished);
 
     assign read_o = (reading & read_finished) ? saved_line : dcache_read;
@@ -203,14 +203,14 @@ module mem_ctrl #(
         block_index <= block_index + (sdram_r_valid_o || (writing & sdram_w_valid_i));
 
         // Reading from the SDRAM when a cache line read is missed.
-        if (reading | (dcache_r_miss & dcache_r_valid)) begin
+        if (reading | (dcache_miss & dcache_r_valid)) begin
             if (sdram_r_valid_o) begin
                 saved_line[block_index] <= sdram_read;
             end
 
             started_reading <= started_reading | sdram_r_valid_o;
             sdram_r_valid_i <= !read_finished & sdram_data_ready;
-            reading <= !read_finished | dcache_r_miss;
+            reading <= !read_finished | dcache_miss;
 
             // A dcache write overriding the old line with the new one will be
             // started when the reading is finished.

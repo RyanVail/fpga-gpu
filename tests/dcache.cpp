@@ -64,7 +64,6 @@ static uint64_t read(DUT* dut, DataSize size, uint16_t addr) {
     pulse(dut);
 
     assert(dut->r_valid_o);
-    assert(!dut->ejected_valid_o);
     return dut->read_o;
 }
 
@@ -74,6 +73,8 @@ static void write_read(DUT* dut) {
 }
 
 static void dirty_write(DUT* dut) {
+    write(dut, DATA_64_BITS, 0, 0, false);
+
     write(dut, DATA_64_BITS, 0, 5, true);
     assert(!dut->ejected_valid_o);
 
@@ -83,6 +84,11 @@ static void dirty_write(DUT* dut) {
     assert(dut->ejected_o == 5);
 
     assert(read(dut, DATA_64_BITS, 64 * 8) == 25);
+
+    assert(read(dut, DATA_64_BITS, 0) == 25);
+    assert(dut->ejected_valid_o);
+    assert(dut->ejected_addr_o == 64);
+    assert(dut->ejected_o = 25);
 }
 
 // TODO: This should also be testing for uncached writes and ejections too but
@@ -168,8 +174,6 @@ int main(int argc, char** argv) {
 
     init(dut);
     write_read(dut);
-
-    // TODO: Fix these.
     dirty_write(dut);
     rand_cached_writes(dut);
 

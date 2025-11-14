@@ -21,7 +21,7 @@ module dcache #(
     parameter addr_width = 16,
 
     // The bit width of a line address.
-    parameter line_addr_width = addr_width - 3,
+    parameter line_addr_width = addr_width - $clog2(line_width / 8),
 
     // The bit width of a cache line.
     parameter line_width = 64,
@@ -40,8 +40,8 @@ module dcache #(
     // If the cache line is done being read, might be a miss.
     output logic r_valid_o,
 
-    // If the read was a miss.
-    output r_miss_o,
+    // If the last read / write was a miss.
+    output miss_o,
 
     // The read cache line.
     output [line_width-1:0] read_o,
@@ -100,15 +100,15 @@ module dcache #(
     // The line being read or ejected.
     dcache_line_s line;
     assign read_o = line.data;
-    assign r_miss_o = line.tag != last_addr;
+    assign miss_o = (line.tag != last_addr) & (write_done | r_valid_o);
+
+    // Set one cycle after a write is issued.
+    logic write_done;
 
     // The line being ejected when writing.
-    logic write_done;
     assign ejected_addr_o = line.tag;
     assign ejected_o = line.data;
-    assign ejected_valid_o = write_done
-        && line.dirty
-        && line.tag != last_addr;
+    assign ejected_valid_o = miss_o & line.dirty;
 
     always_ff @(posedge clk_i) begin
         last_addr <= line_addr;
@@ -131,7 +131,6 @@ module dcache #(
         if (r_valid_i || w_valid_i) begin
             line.dirty <= dirty_flags[set];
             line.tag <= tags[set];
-            line.data <= datas[set];
 
             casez (r_size_i)
                 DCACHE_DATA_8_BITS:
@@ -146,8 +145,6 @@ module dcache #(
         end
     end
 
-    // TODO: This doesn't really work anymore, because non full writes have to
-    // read in the line, unless the write is a full line.
     // Writing the line.
     always_ff @(posedge clk_i) begin
         if (w_valid_i) begin
