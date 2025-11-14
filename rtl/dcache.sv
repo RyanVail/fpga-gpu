@@ -122,9 +122,9 @@ module dcache #(
     localparam addr_width_64bit = $clog2(line_width / 64);
 
     wire [addr_width_8bit:0] addr_8bit = addr_i[addr_width_8bit:0];
-    wire [addr_width_16bit:0] addr_16bit = addr_i[addr_width_16bit:0];
-    wire [addr_width_32bit:0] addr_32bit = addr_i[addr_width_32bit:0];
-    wire [addr_width_64bit:0] addr_64bit = addr_i[addr_width_64bit:0];
+    wire [addr_width_16bit:0] addr_16bit = addr_i[addr_width_8bit:1];
+    wire [addr_width_32bit:0] addr_32bit = addr_i[addr_width_8bit:2];
+    wire [addr_width_64bit:0] addr_64bit = addr_i[addr_width_8bit:3];
 
     // Reading the line or reading the ejected line.
     always_ff @(posedge clk_i) begin

@@ -147,6 +147,15 @@ static void rand_cached_writes(DUT* dut) {
     }
 }
 
+static void mixed_read(DUT* dut) {
+    const uint64_t a = 0x9D013E5279D4A96A;
+    write(dut, DATA_64_BITS, 0, a);
+
+    assert(read(dut, DATA_16_BITS, 2) == ((a >> 16) & 0xFFFF));
+    assert(read(dut, DATA_16_BITS, 4) == ((a >> 32) & 0xFFFF));
+    assert(read(dut, DATA_32_BITS, 4) == ((a >> 32) & 0xFFFFFFFF));
+}
+
 static void mixed_size_write_read(DUT* dut) {
     const uint16_t first = (3 << 8) | 25;
     const uint8_t second = 61;
@@ -157,6 +166,23 @@ static void mixed_size_write_read(DUT* dut) {
     assert(read(dut, DATA_8_BITS, 0) == (first & 255));
     assert(read(dut, DATA_8_BITS, 1) == (first >> 8));
     assert(read(dut, DATA_8_BITS, 2) == second);
+}
+
+static void read_invalid_addr(DUT* dut) {
+    init(dut);
+
+    const uint64_t a = 0x32A308CE250F8C76;
+    write(dut, DATA_64_BITS, 0, a);
+
+    for (uint16_t i = 0; i < line_width / 8; i++) {
+        assert(read(dut, DATA_64_BITS, i) == a);
+    }
+
+    assert(read(dut, DATA_32_BITS, 0) == (a & 0xFFFFFFFF));
+    assert(read(dut, DATA_32_BITS, 3) == (a & 0xFFFFFFFF));
+
+    assert(read(dut, DATA_16_BITS, 2) == ((a >> 16) & 0xFFFF));
+    assert(read(dut, DATA_16_BITS, 3) == ((a >> 16) & 0xFFFF));
 }
 
 int main(int argc, char** argv) {
@@ -176,8 +202,9 @@ int main(int argc, char** argv) {
     write_read(dut);
     dirty_write(dut);
     rand_cached_writes(dut);
-
+    mixed_read(dut);
     mixed_size_write_read(dut);
+    read_invalid_addr(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
