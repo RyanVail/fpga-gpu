@@ -132,7 +132,9 @@ module dcache #(
             line.dirty <= dirty_flags[set];
             line.tag <= tags[set];
 
-            casez (r_size_i)
+            if (line_addr_width'(tags[set]) != line_addr) begin
+                line.data <= datas[set];
+            end else casez (r_size_i)
                 DCACHE_DATA_8_BITS:
                     line.data <= line_width'(datas[set].b8[addr_8bit]);
                 DCACHE_DATA_16_BITS:

@@ -185,6 +185,18 @@ static void read_invalid_addr(DUT* dut) {
     assert(read(dut, DATA_16_BITS, 3) == ((a >> 16) & 0xFFFF));
 }
 
+static void ejected_line_sized(DUT* dut) {
+    init(dut);
+
+    const uint64_t a = 0xB05DC2DC902303EB;
+    write(dut, DATA_64_BITS, 0, a, true);
+    read(dut, DATA_8_BITS, 64 * 8);
+
+    assert(dut->ejected_valid_o);
+    assert(dut->ejected_addr_o == 0);
+    assert(dut->ejected_o == a);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -205,6 +217,7 @@ int main(int argc, char** argv) {
     mixed_read(dut);
     mixed_size_write_read(dut);
     read_invalid_addr(dut);
+    ejected_line_sized(dut);
 
     if (dut->traceCapable) {
         pulse(dut);
