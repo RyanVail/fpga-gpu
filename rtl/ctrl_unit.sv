@@ -31,6 +31,7 @@ module ctrl_unit #(
     logic alu_w_valid;
     logic [mem_addr_width-1:0] alu_w_addr;
     logic [`REG_WIDTH-1:0]alu_w_write;
+    dcache_data_size_e alu_w_size;
     alu_flags_s alu_flags;
     /* verilator lint_on UNUSEDSIGNAL */
 
@@ -46,6 +47,7 @@ module ctrl_unit #(
         .w_valid_o(alu_w_valid),
         .w_addr_o(alu_w_addr),
         .w_write_o(alu_w_write),
+        .w_size_o(alu_w_size),
         .iupt_o(iupt_o),
         .iupt_arg_o(iupt_arg_o)
     );

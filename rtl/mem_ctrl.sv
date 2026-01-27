@@ -7,7 +7,7 @@ module mem_ctrl #(
     parameter addr_width,
 
     // The bit width of a line address.
-    parameter line_addr_width = addr_width - 3,
+    parameter line_addr_width = addr_width - $clog2(line_width / 8),
 
     // The bit width of a cache line.
     parameter line_width,
@@ -29,21 +29,36 @@ module mem_ctrl #(
     parameter t_rp_lat
 ) (
     input clk_i,
+
+    // If this memory is enabled yet.
     output enabled_o,
 
+    // The address to read or write to.
     input [addr_width-1:0] addr_i,
 
+    // If this controller is ready for another command.
     output data_ready_o,
 
+    // If a read should be issued.
     input r_valid_i,
 
+    // The size of the read to perform.
+    dcache_data_size_e r_size_i,
+
+    // If the value is done being read.
     output r_valid_o,
 
+    // The read value.
     output [line_width-1:0] read_o,
 
+    // If a write should be issued.
     input w_valid_i,
 
+    // The value to write.
     input [line_width-1:0] write_i,
+
+    // The size of the value to write.
+    dcache_data_size_e w_size_i,
 
     // External SDRAM interface.
 	output clk_en_o,
@@ -56,33 +71,38 @@ module mem_ctrl #(
     output [row_addr_width-1:0] sdram_a_o,
     inout [bus_width-1:0] dq_io
 );
+    initial `assertEqual(0, line_width % bus_width);
+    localparam blocks_per_line = line_width / bus_width;
+
+    initial `assertEqual(1 << $clog2(blocks_per_line), blocks_per_line);
+
     logic dcache_r_valid;
     logic dcache_miss;
     logic [line_width-1:0] dcache_read;
 
-    wire dcache_dirty = w_valid_i;
+    // Mark the data in the dcache dirty only when a write is issued to this
+    // unit not when loading from SDRAM.
+    wire dcache_dirty = w_valid_i | (reading_sdram_done & writing_dcache);
 
-    localparam line_bytes = $clog2(line_width) - 3;
+    localparam bus_bytes = bus_width / 8;
 
     wire [addr_width-1:0] dcache_addr = (r_valid_i | w_valid_i)
         ? addr_i
-        : {saved_addr, {line_bytes{'0}}};
+        : {
+            missed_line_addr,
+            (addr_width - line_addr_width)'(block_index * bus_bytes)
+        };
 
-    wire dcache_write_valid = w_valid_i | (reading & read_finished);
-
-    wire [line_width-1:0] dcache_write;
-    assign dcache_write = w_valid_i ? write_i : saved_line;
+    logic dcache_w_valid;
+    logic [line_width-1:0] dcache_write;
 
     logic ejected_valid;
-    logic [line_addr_width-1:0] ejected_addr;
-    logic [line_width-1:0] ejected_data;
+    logic [line_addr_width-1:0] dcache_ejected_addr;
+    logic [blocks_per_line-1:0][bus_width-1:0] dcache_ejected_data;
 
-    dcache_data_size_e dcache_read_size;
-    dcache_data_size_e dcache_write_size;
+    wire dcache_r_valid_i = (!busy & r_valid_i) | reading_sdram_done;
 
-    // TODO: Export support for this.
-    assign dcache_read_size = DCACHE_DATA_64_BITS;
-    assign dcache_write_size = DCACHE_DATA_64_BITS;
+    dcache_data_size_e dcache_w_size;
 
     dcache #(
         .addr_width(addr_width),
@@ -91,33 +111,40 @@ module mem_ctrl #(
     ) dcache (
         .clk_i(clk_i),
         .addr_i(dcache_addr),
-        .r_valid_i(r_valid_i),
+        .r_valid_i(dcache_r_valid_i),
         .r_valid_o(dcache_r_valid),
         .miss_o(dcache_miss),
         .read_o(dcache_read),
-        .r_size_i(dcache_read_size),
-        .w_valid_i(dcache_write_valid),
+        .r_size_i(r_size_i),
+        .w_valid_i(dcache_w_valid),
         .write_i(dcache_write),
-        .w_size_i(dcache_write_size),
+        .w_size_i(dcache_w_size),
         .dirty_i(dcache_dirty),
         .ejected_valid_o(ejected_valid),
-        .ejected_addr_o(ejected_addr),
-        .ejected_o(ejected_data)
+        .ejected_addr_o(dcache_ejected_addr),
+        .ejected_o(dcache_ejected_data)
     );
 
-    wire enabled;
-    assign enabled_o = enabled;
+    wire [line_addr_width-1:0] sdram_base_addr = (reading_sdram)
+        ? missed_line_addr
+        : ejected_line_addr;
 
-    wire [sdram_addr_width-1:0] sdram_addr = (saved_addr * blocks_per_line)
-        + sdram_addr_width'(block_index);
+    wire [sdram_addr_width-1:0] sdram_addr = (
+        sdram_base_addr * blocks_per_line
+    ) + sdram_addr_width'(block_index);
 
     logic sdram_data_ready;
     logic sdram_r_valid_i;
     logic sdram_r_valid_o;
     logic [bus_width-1:0]sdram_read;
 
-    wire [bus_width-1:0]sdram_write = saved_line[block_index];
-    wire sdram_w_valid_i = writing & !write_finished & sdram_data_ready;
+    wire [bus_width-1:0]sdram_write = (ejected_valid)
+        ? dcache_ejected_data[0]
+        : ejected_line[block_index];
+
+    wire sdram_w_valid_i = writing_sdram
+        & !writing_sdram_done
+        & sdram_data_ready;
 
     sdram_ctrl #(
         .bank_addr_width(bank_addr_width),
@@ -133,7 +160,7 @@ module mem_ctrl #(
         .t_rp_lat(t_rp_lat)
     ) sdram (
         .clk_i(clk_i),
-        .enabled_o(enabled),
+        .enabled_o(enabled_o),
         .addr_i(sdram_addr),
         .data_ready_o(sdram_data_ready),
         .r_valid_i(sdram_r_valid_i),
@@ -151,89 +178,128 @@ module mem_ctrl #(
         .dq_io(dq_io)
     );
 
-    initial `assertEqual(0, line_width % bus_width);
-    localparam blocks_per_line = line_width / bus_width;
+    // The saved addr being read / written to when a miss occurs.
+    logic [line_addr_width-1:0] missed_line_addr;
 
-    initial `assertEqual(1 << $clog2(blocks_per_line), blocks_per_line);
+    // If the command currently issued is a write to the dcache.
+    logic writing_dcache;
+
+    // The saved data of a missed write.
+    logic [line_width-1:0] saved_write;
+
+    // The saved size of a missed write.
+    dcache_data_size_e saved_w_size;
+
+    // The data of the ejected line.
+    logic [blocks_per_line-1:0][bus_width-1:0] ejected_line;
+
+    // The address of the ejected line.
+    logic [line_addr_width-1:0] ejected_line_addr;
+
+    // If an ejected line is being written to the SDRAM.
+    logic writing_sdram;
+    wire writing_sdram_done = writing_sdram && sdram_done;
+
+    // If a write should be started to the SDRAM.
+    wire start_sdram_write = ejected_valid & !reading_sdram;
+
+    // If a missed line is being read from the SDRAM.
+    logic reading_sdram;
+    wire reading_sdram_done = reading_sdram && sdram_done;
+
+    assign sdram_r_valid_i = reading_sdram & sdram_data_ready;
+
+    // If a read should be started from the SDRAM.
+    wire start_sdram_read = (writing_sdram & writing_sdram_done)
+        | (!ejected_valid & dcache_miss);
+
+    always_comb begin
+        if (reading_sdram_done & writing_dcache) begin
+            dcache_w_valid = 1;
+            dcache_write = saved_write;
+            dcache_w_size = saved_w_size;
+        end else if (reading_sdram) begin
+            dcache_w_valid = sdram_r_valid_o;
+            dcache_write = line_width'(sdram_read);
+            dcache_w_size = dcache_data_size_of(bus_width);
+        end else begin
+            dcache_w_valid = w_valid_i;
+            dcache_write = write_i;
+            dcache_w_size = w_size_i;
+        end
+    end
+
+    // If the current operation on the SDRAM is done.
+    logic sdram_done;
+    initial sdram_done = 0;
+
+    // The current SDRAM data block being written or read from the cache line.
     logic [$clog2(blocks_per_line)-1:0] block_index;
 
-    // If this controller is writing to the SDRAM.
-    logic writing;
-    logic started_writing;
-    wire write_finished = started_writing && block_index == 0;
+    // If the block index should be incremented.
+    wire move_next_block = sdram_r_valid_o | (
+        writing_sdram & sdram_w_valid_i
+    );
 
-    // If this controller is reading to the SDRAM.
-    logic reading;
-    logic started_reading;
-    wire read_finished = started_reading && block_index == 0;
+    wire r_valid_no_miss = dcache_r_valid & !dcache_miss;
+    assign r_valid_o = r_valid_no_miss & !writing_dcache;
 
-    logic [blocks_per_line-1:0][bus_width-1:0] saved_line;
-    logic [line_addr_width-1:0] saved_addr;
+    assign read_o = dcache_read;
 
-    wire r_valid_non_miss = dcache_r_valid & !dcache_miss;
-    assign r_valid_o = r_valid_non_miss | (reading & read_finished);
+    // If this controller is busy.
+    logic busy;
+    initial busy = 0;
 
-    assign read_o = (reading & read_finished) ? saved_line : dcache_read;
+    wire w_valid_no_miss = writing_dcache & !dcache_miss
+        & !reading_sdram & !writing_sdram;
 
-    // If a command has been issued to this controller.
-    logic issued;
-    initial issued = 0;
-
-    // TODO: This should be explicitly based on the lat of the dcache.
-    logic write_issued;
-    initial write_issued = 0;
-
-    wire w_non_eject_done = write_issued & !ejected_valid;
-
-    assign data_ready_o = !r_valid_i & !w_valid_i
-        & !writing & !reading
-        & !issued;
+    assign data_ready_o = !r_valid_i & !w_valid_i & !busy;
 
     always_ff @(posedge clk_i) begin
-        if (r_valid_i | w_valid_i) issued <= 1;
-        if (issued & (read_finished | write_finished)) issued <= 0;
-
-        write_issued <= w_valid_i;
-        if (w_non_eject_done | r_valid_non_miss) issued <= 0;
+        if (!busy) begin
+            busy <= r_valid_i | w_valid_i;
+            writing_dcache <= w_valid_i;
+            missed_line_addr <= addr_i[
+                addr_width - 1
+                : addr_width - line_addr_width
+            ];
+        end else begin
+            if (w_valid_no_miss | r_valid_no_miss) begin
+                busy <= 0;
+            end else begin
+                busy <= !reading_sdram_done;
+            end
+        end
     end
 
     always_ff @(posedge clk_i) begin
-        // Automatically going to the next block when a read is finished or a
+        // Going to the next block when a block read is finished or a block
         // write is issued to the SDRAM.
-        block_index <= block_index + (sdram_r_valid_o || (writing & sdram_w_valid_i));
+        block_index <= block_index + move_next_block;
 
-        // Reading from the SDRAM when a cache line read is missed.
-        if (reading | (dcache_miss & dcache_r_valid)) begin
-            if (sdram_r_valid_o) begin
-                saved_line[block_index] <= sdram_read;
-            end
-
-            started_reading <= started_reading | sdram_r_valid_o;
-            sdram_r_valid_i <= !read_finished & sdram_data_ready;
-            reading <= !read_finished | dcache_miss;
-
-            // A dcache write overriding the old line with the new one will be
-            // started when the reading is finished.
-        end else begin
-            started_reading <= 0;
+        // Saving ejected lines.
+        if (ejected_valid & !reading_sdram) begin
+            ejected_line <= dcache_ejected_data;
+            ejected_line_addr <= dcache_ejected_addr;
         end
 
-        if (ejected_valid) begin
-            saved_line <= ejected_data;
-            saved_addr <= ejected_addr;
-        end
+        reading_sdram <= (!reading_sdram_done & reading_sdram)
+            | start_sdram_read;
 
-        // Writing ejected lines back to the SDRAM. Writing to the SDRAM is
-        // delayed by one cycle to wait for *saved_line* to be updated.
-        if (writing | ejected_valid) begin
-            started_writing <= started_writing | (writing & sdram_data_ready);
-            writing <= !write_finished | ejected_valid;
-        end else begin
-            started_writing <= 0;
-        end
+        writing_sdram <= (!writing_sdram_done & writing_sdram)
+            | start_sdram_write;
 
-        if (r_valid_i) begin
-            saved_addr <= addr_i[addr_width-1:line_bytes];
+        sdram_done <= (block_index == '1) & move_next_block;
+
+        if (!busy & w_valid_i) begin
+            saved_write <= write_i;
+            saved_w_size <= w_size_i;
         end
+    end
+
+    // Sanity checks.
+    always_ff @(posedge clk_i) begin
+        assert (!(reading_sdram & writing_sdram));
+        assert (!(data_ready_o & (reading_sdram | writing_sdram)));
     end
 endmodule

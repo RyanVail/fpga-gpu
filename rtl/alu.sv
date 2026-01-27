@@ -1,4 +1,5 @@
 `include "rcp.sv"
+`include "dcache.svh"
 
 `define INST_WIDTH 32
 `define REG_INDEX_WIDTH 5
@@ -104,9 +105,12 @@ typedef struct packed {
             logic [`REG_INDEX_WIDTH-1:0] addr;
             logic [`REG_INDEX_WIDTH-1:0] source;
 
+            // The size of the operation to perform.
+            dcache_data_size_e size;
+
             // If the offset should be subtracted from the address.
             logic negative;
-            logic [13:0] offset;
+            logic [11:0] offset;
         } write;
 
         struct packed {
@@ -165,6 +169,7 @@ module alu #(
     output logic w_valid_o,
     output logic [mem_addr_width-1:0] w_addr_o,
     output logic [`REG_WIDTH-1:0] w_write_o,
+    output dcache_data_size_e w_size_o,
 
     // High when an interrupt is raised.
     output iupt_o,
@@ -249,10 +254,12 @@ module alu #(
             w_valid_o <= 0;
             w_addr_o <= 'X;
             w_write_o <= 'X;
+            w_size_o <= dcache_data_size_e'('X);
         end else if (op == ALU_OP_MEM_WRITE && exec) begin
             w_valid_o <= 1;
 
             w_write_o <= reg_value_1;
+            w_size_o <= inst.data.write.size;
             if (inst.data.write.negative) begin
                 w_addr_o <= mem_addr_width'(reg_value_0)
                     - mem_addr_width'(inst.data.write.offset);

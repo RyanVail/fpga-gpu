@@ -15,7 +15,10 @@ module mem_ctrl_IS42S16160G_7TL #(
     output data_ready_o,
 
     input r_valid_i,
+    dcache_data_size_e r_size_i,
+
     input w_valid_i,
+    dcache_data_size_e w_size_i,
 
     output r_valid_o,
 
@@ -109,10 +112,12 @@ module mem_ctrl_IS42S16160G_7TL #(
         .addr_i(addr_i),
         .data_ready_o(data_ready_o),
         .r_valid_i(r_valid_i),
+        .r_size_i(r_size_i),
         .w_valid_i(w_valid_i),
         .r_valid_o(r_valid_o),
         .read_o(read_o),
         .write_i(write_i),
+        .w_size_i(w_size_i),
         .clk_en_o(clk_en),
         .cs_o(cs),
         .ras_o(ras),

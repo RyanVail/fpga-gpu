@@ -8,4 +8,18 @@ typedef enum logic [1:0] {
     DCACHE_DATA_64_BITS = 2'b11
 } dcache_data_size_e;
 
+function dcache_data_size_e dcache_data_size_of(int size);
+    casez (size)
+        8: begin
+            return DCACHE_DATA_8_BITS;
+        end 16: begin
+            return DCACHE_DATA_16_BITS;
+        end 32: begin
+            return DCACHE_DATA_32_BITS;
+        end 64: begin
+            return DCACHE_DATA_64_BITS;
+        end
+    endcase
+endfunction
+
 `endif
