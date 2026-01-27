@@ -2,4 +2,4 @@
 zig-out/
 build/
 *.o
-*.swp
+*.sw*
