@@ -6,7 +6,7 @@
 #include "Vmem_ctrl_IS42S16160G_7TL.h"
 #include "verilated.h"
 #include "verilated_fst_c.h"
-#include "dcache.hpp"
+#include "dcache_tb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <random>

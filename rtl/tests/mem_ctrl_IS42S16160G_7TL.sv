@@ -1,4 +1,5 @@
 `include "sim/sdram.sv"
+`include "dcache.sv"
 `include "mem_ctrl.sv"
 `include "utils.sv"
 
@@ -90,12 +91,27 @@ module mem_ctrl_IS42S16160G_7TL #(
     localparam sdram_addr_width = bank_addr_width + row_addr_width + col_addr_width;
     localparam addr_width = sdram_addr_width - (line_width / bus_width);
     localparam line_width = 64;
+    localparam line_addr_width = addr_width - $clog2(line_width / 8);
     localparam dcache_depth = 64;
+
+    dcache_if #(
+        .addr_width(addr_width),
+        .line_addr_width(line_addr_width),
+        .line_width(line_width)
+    ) dcache_bus();
+
+    dcache #(
+        .addr_width(addr_width),
+        .line_addr_width(line_addr_width),
+        .line_width(line_width),
+        .depth(dcache_depth)
+    ) cache (
+        .clk_i(clk_i),
+        .bus(dcache_bus)
+    );
 
     mem_ctrl #(
         .addr_width(addr_width),
-        .line_width(line_width),
-        .dcache_depth(dcache_depth),
         .sdram_addr_width(sdram_addr_width),
         .bank_addr_width(bank_addr_width),
         .row_addr_width(row_addr_width),
@@ -118,6 +134,7 @@ module mem_ctrl_IS42S16160G_7TL #(
         .read_o(read_o),
         .write_i(write_i),
         .w_size_i(w_size_i),
+        .dcache(dcache_bus),
         .clk_en_o(clk_en),
         .cs_o(cs),
         .ras_o(ras),

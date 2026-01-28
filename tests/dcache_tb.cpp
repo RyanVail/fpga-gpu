@@ -1,12 +1,12 @@
-#define DUT Vdcache
+#define DUT Vdcache_tb
 
 #define _STR(a) #a
 #define STR(a) _STR(a)
 
-#include "Vdcache.h"
+#include "Vdcache_tb.h"
 #include "verilated.h"
 #include "verilated_fst_c.h"
-#include "dcache.hpp"
+#include "dcache_tb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <random>
@@ -45,9 +45,9 @@ static void write(
     uint64_t data,
     bool dirty = false
 ) {
-    dut->r_valid_i = 0;
-    dut->w_valid_i = 1;
-    dut->dirty_i = (uint8_t)dirty;
+    dut->r_req_i = 0;
+    dut->w_req_i = 1;
+    dut->w_dirty_i = (uint8_t)dirty;
     dut->w_size_i = size;
     dut->addr_i = addr;
     dut->write_i = data;
@@ -57,8 +57,8 @@ static void write(
 }
 
 static uint64_t read(DUT* dut, DataSize size, uint16_t addr) {
-    dut->r_valid_i = 1;
-    dut->w_valid_i = 0;
+    dut->r_req_i = 1;
+    dut->w_req_i = 0;
     dut->r_size_i = size;
     dut->addr_i = addr;
     pulse(dut);
@@ -104,16 +104,16 @@ static void rand_cached_writes(DUT* dut) {
     std::uniform_int_distribution<uint64_t> value_dist(0, max_value);
     std::uniform_int_distribution<size_t> addr_dist(0, max_addr);
 
-    dut->w_valid_i = 0;
-    dut->r_valid_i = 0;
-    dut->dirty_i = 1;
+    dut->w_req_i = 0;
+    dut->r_req_i = 0;
+    dut->w_dirty_i = 1;
 
     pulse(dut);
 
     uint64_t values[max_addr + 1];
 
     // Initing the values.
-    dut->w_valid_i = 1;
+    dut->w_req_i = 1;
     for (size_t i = 0; i < max_addr; i++) {
         const uint64_t value = value_dist(gen);
 
@@ -122,7 +122,7 @@ static void rand_cached_writes(DUT* dut) {
     }
 
     // Waiting for the writes to finish.
-    dut->w_valid_i = 0;
+    dut->w_req_i = 0;
     pulse(dut);
     pulse(dut);
 
@@ -137,7 +137,7 @@ static void rand_cached_writes(DUT* dut) {
     }
 
     // Waiting for the writes to finish.
-    dut->w_valid_i = 0;
+    dut->w_req_i = 0;
     pulse(dut);
     pulse(dut);
 
