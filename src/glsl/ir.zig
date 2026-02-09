@@ -1,6 +1,7 @@
 pub const operation = @import("ir/operation.zig");
 pub const Type = parser.Type;
 pub const Block = @import("ir/Block.zig");
+pub const Value = @import("ir/Value.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
