@@ -15,6 +15,7 @@ test {
     _ = glsl.ir.operation;
     _ = glsl.ir.Block;
     _ = glsl.ir.Value;
+    _ = glsl.ir.Range;
 
     std.testing.refAllDecls(@This());
 }
