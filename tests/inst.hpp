@@ -82,6 +82,9 @@ enum Imm : uint8_t {
     SQRT_2 = 10,
     ONE_OVER_TWO_PI = 11,
     PI = 12,
+
+    // The flags register.
+    FLAGS = 31,
 };
 
 typedef Imm Saved;
@@ -292,6 +295,10 @@ static Inst load_imm(
         shift,
         shift_regs
     );
+}
+
+static Inst load_flags(Cond cond = Cond::ALWAYS, bool shift_regs = true) {
+    return load_imm(Imm::FLAGS, cond, shift_regs);
 }
 
 static Inst write(

@@ -418,6 +418,21 @@ static void simple_div(DUT* dut) {
     //printf("%f\n", (double)dut->iupt_arg_o / (((uint64_t)1 << (32 - whole_bits))));
 }
 
+static void flag_reg(DUT* dut) {
+    reset(dut);
+
+    exec(dut, load_flags());
+    assert_reg(dut, Reg::R0, 0);
+
+    exec(dut, dual(Op::ADD, Reg::ZERO, Reg::ZERO, true));
+    exec(dut, load_flags());
+    assert_reg(dut, Reg::R0, Flag::Z);
+
+    exec(dut, dual(Op::ADD, Reg::ZERO, Imm::NEG_ONE, Shift(), true));
+    exec(dut, load_flags());
+    assert_reg(dut, Reg::R0, Flag::N);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -455,6 +470,7 @@ int main(int argc, char** argv) {
     pi_imm(dut);
     one_over_two_pi_imm(dut);
     save_and_load(dut);
+    flag_reg(dut);
 
     if (STRICT_RCP) {
         simple_rcp(dut);

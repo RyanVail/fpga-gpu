@@ -14,6 +14,9 @@
 // The number of registers that can be saved.
 `define NUM_SAVED 8
 
+// The immediate value that loads in the flags register.
+`define FLAG_IMM_VALUE 31
+
 `define SAVED_INDEX_WIDTH $clog2(`NUM_SAVED)
 
 `define ALU_OP_WIDTH 4
@@ -141,10 +144,10 @@ module alu #(
     // The width of a memory address.
     parameter mem_addr_width = 16,
 
-    parameter [`NUM_REGS-`NUM_SAVED-1:0][`REG_WIDTH*2-1:0] immediates = '{
+    parameter [`NUM_REGS-`NUM_SAVED-2:0][`REG_WIDTH*2-1:0] immediates = '{
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0,
+        0, 0,
 
         64'hC90FDAA22168C235, // (Q 2.62) pi
         64'h28BE60DB9391054B, // (Q 0.64) 1 / (2 * pi)
@@ -329,6 +332,8 @@ module alu #(
         if (inst.data.triple.immediate) begin
             if (inst.data.dual.reg_1 < `NUM_SAVED) begin
                 i_src_value_1 = i_width'(saved[inst.data.dual.reg_1]);
+            end else if (inst.data.dual.reg_1 == `FLAG_IMM_VALUE) begin
+                i_src_value_1 = i_width'(flags_o);
             end else begin
                 i_src_value_1 = immediates[inst.data.dual.reg_1 - `NUM_SAVED];
             end
