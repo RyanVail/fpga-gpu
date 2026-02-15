@@ -70,10 +70,10 @@ static void exec(DUT* dut, Inst inst) {
     dut->eval(); \
 })
 
-static void load_and_iupt(DUT* dut) {
+static void load_const_and_iupt(DUT* dut) {
     reset(dut);
 
-    exec(dut, load(26));
+    exec(dut, load_const(26));
     exec(dut, iupt(Reg::R0));
 
     for (uint32_t i = 0; i < 8; i++) {
@@ -82,7 +82,7 @@ static void load_and_iupt(DUT* dut) {
         assert_pc(dut, 1);
     }
 
-    exec(dut, load(2));
+    exec(dut, load_const(2));
     assert(!dut->iupt_o);
     assert_pc(dut, 2);
 }
@@ -90,13 +90,13 @@ static void load_and_iupt(DUT* dut) {
 static void cond_iupt(DUT* dut) {
     reset(dut);
 
-    exec(dut, load(64820));
+    exec(dut, load_const(64820));
     exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
     exec(dut, iupt(Cond::EQZ, Reg::R0));
     assert(!dut->iupt_o);
     assert_pc(dut, 3);
 
-    exec(dut, load(0));
+    exec(dut, load_const(0));
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
     exec(dut, iupt(Cond::EQZ, Reg::R2));
     for (uint32_t i = 0; i < 3; i++) {
@@ -110,8 +110,8 @@ static void eqz_flag(DUT* dut) {
     reset(dut);
     assert_flag(dut, Flag::Z, false);
 
-    exec(dut, load(10));
-    exec(dut, load(10));
+    exec(dut, load_const(10));
+    exec(dut, load_const(10));
     assert_flag(dut, Flag::Z, false);
 
     // (R0 + R1) -> 10 + 10
@@ -132,7 +132,7 @@ static void neg_flag(DUT* dut) {
     reset(dut);
     assert_flag(dut, Flag::N, false);
 
-    exec(dut, load(10));
+    exec(dut, load_const(10));
     assert_flag(dut, Flag::N, false);
 
     exec(dut, neg(Reg::R0, true));
@@ -158,7 +158,7 @@ static void cond_branch(DUT* dut) {
     exec(dut, branch(Cond::EQZ, 100));
     assert_pc(dut, 1 + 100);
 
-    exec(dut, load(10));
+    exec(dut, load_const(10));
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
     assert_pc(dut, 1 + 100 + 2);
 
@@ -169,10 +169,10 @@ static void cond_branch(DUT* dut) {
     assert_pc(dut, 1 + 100 + 3 - 20);
 }
 
-static void cond_load(DUT* dut) {
+static void cond_load_const(DUT* dut) {
     reset(dut);
-    exec(dut, load(5));
-    exec(dut, load(613, Cond::EQZ));
+    exec(dut, load_const(5));
+    exec(dut, load_const(613, Cond::EQZ));
     assert_reg(dut, Reg::R0, 5);
 }
 
@@ -180,7 +180,7 @@ static void mul_high(DUT* dut) {
     reset(dut);
 
     const uint32_t value = 0xEC6C09;
-    exec(dut, load(value));
+    exec(dut, load_const(value));
     exec(dut, dual(
         Op::MUL,
         Reg::R0, Reg::R0,
@@ -197,8 +197,8 @@ static void write_offset(DUT* dut) {
 
     const uint32_t addr = 123;
     const uint32_t value = 0x6E8891;
-    exec(dut, load(addr));
-    exec(dut, load(value));
+    exec(dut, load_const(addr));
+    exec(dut, load_const(value));
 
     const uint32_t offset = 500;
     exec(dut, write(Reg::R1, Reg::R0, offset));
@@ -211,7 +211,7 @@ static void write_offset(DUT* dut) {
 static void cond_write(DUT* dut) {
     reset(dut);
 
-    exec(dut, load(3));
+    exec(dut, load_const(3));
     exec(dut, write(Cond::EQZ, Reg::R1, Reg::ZERO, 0));
     assert(!dut->w_valid_o);
 }
@@ -222,7 +222,7 @@ static void add_no_reg_shift(DUT* dut) {
     const size_t len = 5;
     const uint32_t values[len] = { 0xEF9, 0xA2FD, 0x16B2, 0x18F, 0xC2A7 };
     for (size_t i = 0; i < len; i++) {
-        exec(dut, load(values[i]));
+        exec(dut, load_const(values[i]));
     }
 
     exec(dut, dual(
@@ -245,25 +245,25 @@ static void add_imm_shift(DUT* dut) {
 
 static void add_reg_shift(DUT* dut) {
     reset(dut);
-    exec(dut, load(53));
-    exec(dut, load(26032));
+    exec(dut, load_const(53));
+    exec(dut, load_const(26032));
     exec(dut, dual(Op::ADD, Reg::R1, Reg::R0, Shift(true, 3)));
     assert_reg(dut, Reg::R0, 53 + (26032 >> 3));
 }
 
 static void neg_mul_shift(DUT* dut) {
     reset(dut);
-    exec(dut, load(20));
+    exec(dut, load_const(20));
     exec(dut, neg(Reg::R0, true));
-    exec(dut, load(10));
+    exec(dut, load_const(10));
     exec(dut, dual(Op::IMUL, Reg::R0, Reg::R1, true, Shift(true, 3)));
     assert_reg(dut, Reg::R0, -25);
 }
 
 static void mul_shift(DUT* dut) {
     reset(dut);
-    exec(dut, load(234));
-    exec(dut, load(104));
+    exec(dut, load_const(234));
+    exec(dut, load_const(104));
     exec(dut, dual(
         Op::MUL,
         Reg::R0, Reg::R1,
@@ -276,44 +276,44 @@ static void mul_shift(DUT* dut) {
 
 static void cond_add(DUT* dut) {
     reset(dut);
-    exec(dut, load(234));
-    exec(dut, load(104));
+    exec(dut, load_const(234));
+    exec(dut, load_const(104));
     exec(dut, dual(Op::ADD, Reg::R0, Reg::R1, Cond::EQZ));
     assert_reg(dut, Reg::R0, 104);
 }
 
 static void clamp_unsigned_min(DUT* dut) {
     reset(dut);
-    exec(dut, load(500));
-    exec(dut, load(250));
-    exec(dut, load(265));
+    exec(dut, load_const(500));
+    exec(dut, load_const(250));
+    exec(dut, load_const(265));
     exec(dut, clamp(Reg::R2, Reg::R1, Reg::R0));
     assert_reg(dut, Reg::R0, 265);
 }
 
 static void clamp_unsigned_max(DUT* dut) {
     reset(dut);
-    exec(dut, load(2000));
-    exec(dut, load(0));
-    exec(dut, load(600));
+    exec(dut, load_const(2000));
+    exec(dut, load_const(0));
+    exec(dut, load_const(600));
     exec(dut, clamp(Reg::R2, Reg::R1, Reg::R0));
     assert_reg(dut, Reg::R0, 600);
 }
 
 static void clamp_unsigned_mid(DUT* dut) {
     reset(dut);
-    exec(dut, load(600));
-    exec(dut, load(0));
-    exec(dut, load(2000));
+    exec(dut, load_const(600));
+    exec(dut, load_const(0));
+    exec(dut, load_const(2000));
     exec(dut, clamp(Reg::R2, Reg::R1, Reg::R0));
     assert_reg(dut, Reg::R0, 600);
 }
 
 static void clamp_signed_min(DUT* dut) {
     reset(dut);
-    exec(dut, load(999));
+    exec(dut, load_const(999));
     exec(dut, neg(Reg::R0));
-    exec(dut, load(20));
+    exec(dut, load_const(20));
     exec(dut, neg(Reg::R0));
     exec(dut, clamp(Reg::R2, Reg::R0, Reg::R1));
     assert_reg(dut, Reg::R0, -20);
@@ -324,7 +324,7 @@ static void bnot(DUT* dut) {
     const uint32_t values[len] = { 10000, 10, 50, 4, 3, 2, 1, 0 };
     for (size_t i = 0; i < len; i++) {
         reset(dut);
-        exec(dut, load(values[i]));
+        exec(dut, load_const(values[i]));
         exec(dut, bnot(Reg::R0));
         assert_reg(dut, Reg::R0, !values[i]);
     }
@@ -332,7 +332,7 @@ static void bnot(DUT* dut) {
 
 static void add_imm_one(DUT* dut) {
     reset(dut);
-    exec(dut, load(99));
+    exec(dut, load_const(99));
     exec(dut, dual(Op::ADD, Reg::R0, Imm::ONE));
     assert_reg(dut, Reg::R0, 100);
 }
@@ -354,7 +354,7 @@ static void pi_imm(DUT* dut) {
 
 static void one_over_two_pi_imm(DUT* dut) {
     reset(dut);
-    exec(dut, load(150));
+    exec(dut, load_const(150));
     exec(dut, dual(
         Op::MUL,
         Reg::R0,
@@ -370,15 +370,15 @@ static void one_over_two_pi_imm(DUT* dut) {
 
 static void save_and_load(DUT* dut) {
     reset(dut);
-    exec(dut, load(100));
+    exec(dut, load_const(100));
     exec(dut, save(Saved::S0, Reg::R0));
 
-    exec(dut, load(603));
+    exec(dut, load_const(603));
     exec(dut, save(Saved::S1, Reg::R0, Shift(false, 1)));
 
     // Loading back the registers.
-    exec(dut, load(Saved::S1));
-    exec(dut, load(Saved::S0, Cond::ALWAYS, Shift(false, 3)));
+    exec(dut, load_imm(Saved::S1));
+    exec(dut, load_imm(Saved::S0, Cond::ALWAYS, Shift(false, 3)));
     assert_reg(dut, Reg::R1, 603 << 1);
     assert_reg(dut, Reg::R0, 100 << 3);
 }
@@ -388,7 +388,7 @@ static void simple_rcp(DUT* dut) {
     const uint32_t expected = 613566756;
 
     reset(dut);
-    exec(dut, load(7));
+    exec(dut, load_const(7));
     exec(dut, dual(Op::RCP, Reg::ZERO, Reg::R0, Shift(false, 0)));
     exec(dut, nop(true));
     assert_reg(dut, Reg::R1, expected);
@@ -403,8 +403,8 @@ static void simple_div(DUT* dut) {
     const uint32_t expected = 39146837;
 
     reset(dut);
-    exec(dut, load(numerator));
-    exec(dut, load(denominator));
+    exec(dut, load_const(numerator));
+    exec(dut, load_const(denominator));
     exec(dut, dual(Op::RCP, Reg::ZERO, Reg::R0, Shift(false, 0)));
     exec(dut, nop(true));
     exec(dut, dual(
@@ -431,12 +431,12 @@ int main(int argc, char** argv) {
         tfp->open("build/waves/" STR(DUT) ".fst");
     }
 
-    load_and_iupt(dut);
+    load_const_and_iupt(dut);
     cond_iupt(dut);
     eqz_flag(dut);
     neg_flag(dut);
     cond_branch(dut);
-    cond_load(dut);
+    cond_load_const(dut);
     mul_high(dut);
     write_offset(dut);
     cond_write(dut);

@@ -13,7 +13,7 @@ enum Op : uint8_t {
     MUL = 0b0010,
     RCP = 0b0011,
     CLAMP = 0b0100,
-    LOAD = 0b0101,
+    CONST = 0b0101,
     BRANCH = 0b0110,
     MEM_WRITE = 0b0111,
     IADD = 0b1000,
@@ -265,18 +265,18 @@ static Inst branch(
         | offset;
 }
 
-static Inst load(
+static Inst load_const(
     uint32_t immediate,
     Cond cond = Cond::ALWAYS,
     bool shift_regs = true
 ) {
     return ((uint32_t)(!shift_regs) << 31)
         | ((uint32_t)cond << 29)
-        | ((uint32_t)inst::Op::LOAD << 25)
+        | ((uint32_t)inst::Op::CONST << 25)
         | ((uint32_t)immediate);
 }
 
-static Inst load(
+static Inst load_imm(
     Imm imm,
     Cond cond = Cond::ALWAYS,
     Shift shift = Shift(),

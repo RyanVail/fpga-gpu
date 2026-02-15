@@ -23,7 +23,7 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_MUL = 4'b0010,
     ALU_OP_RCP = 4'b0011,
     ALU_OP_CLAMP = 4'b0100,
-    ALU_OP_LOAD = 4'b0101,
+    ALU_OP_CONST = 4'b0101,
     ALU_OP_BRANCH = 4'b0110,
     ALU_OP_MEM_WRITE = 4'b0111,
     ALU_OP_IADD = 4'b1000,
@@ -118,13 +118,13 @@ typedef struct packed {
             logic [1:0] _0;
             logic [`REG_INDEX_WIDTH-1:0] src;
 
-            // The bitwise shift to apply to `reg_1`.
+            // The bitwise shift to apply to `src` before being saved.
             alu_shift_e shift;
             logic [4:0] shift_bits;
 
             logic _1;
 
-            // Load an immediate value in place of `reg_1`.
+            // Load an immediate value in place of `src`.
             logic immediate;
 
             logic [6:0] _2;
@@ -218,7 +218,7 @@ module alu #(
     logic is_dual;
     always_comb begin
         casez (op)
-            ALU_OP_LOAD,
+            ALU_OP_CONST,
             ALU_OP_BRANCH,
             ALU_OP_MEM_WRITE,
             ALU_OP_CLAMP: begin
@@ -388,7 +388,7 @@ module alu #(
                 end
             end
 
-            ALU_OP_LOAD: begin
+            ALU_OP_CONST: begin
                 i_result = i_width'(inst.data.immediate);
             end
 

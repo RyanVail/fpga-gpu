@@ -73,13 +73,13 @@ static uint32_t run_intern(DUT* dut, const Inst* program, size_t len) {
     return dut->iupt_arg_o;
 }
 
-static void load_and_iupt(DUT* dut) {
-    load_inst(dut, load(294));
-    load_inst(dut, load(406));
-    load_inst(dut, load(738));
-    load_inst(dut, load(2500));
-    load_inst(dut, load(6024));
-    load_inst(dut, load(406));
+static void load_const_and_iupt(DUT* dut) {
+    load_inst(dut, load_const(294));
+    load_inst(dut, load_const(406));
+    load_inst(dut, load_const(738));
+    load_inst(dut, load_const(2500));
+    load_inst(dut, load_const(6024));
+    load_inst(dut, load_const(406));
     load_inst(dut, iupt(Reg::R5));
 
     for (uint32_t i = 0; i < 6; i++) {
@@ -94,8 +94,8 @@ static void load_and_iupt(DUT* dut) {
 
 static void simple_add(DUT* dut) {
     const Inst program[] = {
-        load(294),
-        load(6),
+        load_const(294),
+        load_const(6),
         dual(Op::ADD, Reg::R0, Reg::R1, false),
         iupt(Reg::R0),
     };
@@ -106,7 +106,7 @@ static void simple_add(DUT* dut) {
 static void simple_loop(DUT* dut) {
     const Inst program[] = {
         dual(Op::ADD, Reg::R1, Imm::ONE),
-        load(5),
+        load_const(5),
         dual(
             Op::SUB,
             Reg::R1, Reg::R0,
@@ -129,8 +129,8 @@ static void fib(DUT* dut) {
     const uint32_t expected = 144;
 
     const Inst program[] = {
-        load(1),
-        load(iters),
+        load_const(1),
+        load_const(iters),
 
         dual(Op::ADD, Reg::R1, Reg::ZERO, Cond::ALWAYS),
         dual(Op::ADD, Reg::R2, Reg::R3, Cond::ALWAYS),
@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
         tfp->open("build/waves/" STR(DUT) ".fst");
     }
 
-    load_and_iupt(dut);
+    load_const_and_iupt(dut);
     simple_add(dut);
     simple_loop(dut);
     fib(dut);
