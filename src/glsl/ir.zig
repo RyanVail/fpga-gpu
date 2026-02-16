@@ -120,6 +120,20 @@ pub const Inst = union(enum) {
             else => false,
         };
     }
+
+    /// Checks if this instruction uses the supplied value.
+    ///
+    /// This doesn't check if this instruction is setting the supplied value,
+    /// only if it's using the value.
+    pub fn usesVal(self: Self, val: Val.Id) bool {
+        return switch (self) {
+            .load => |v| v == val,
+            .store => |s| s.source == val,
+            .expr => |e| e.usesVal(val),
+            .ret => |e|  e == val,
+            else => false,
+        };
+    }
 };
 
 pub const InstReader = struct {
@@ -164,6 +178,27 @@ pub const InstWriter = struct {
 const debug_allocator = std.testing.allocator;
 const expectEqual = std.testing.expectEqual;
 const expectEqualSlices = std.testing.expectEqualSlices;
+
+test "uses value" {
+    const Test = struct{ bool, Inst, Val.Id };
+    const tests = [_]Test{
+        .{ false, .{ .ret = 4 }, 0 },
+        .{ true, .{ .ret = 4 }, 4 },
+        .{ false, .{ .load = 100 }, 3 },
+        .{ true, .{ .load = 10 }, 10 },
+        .{ false, .{ .free = 2 }, 2 },
+        .{ true, .{ .expr = .{ .add = .{ 0, 2 } }}, 2 },
+        .{ false, .{ .expr = .{ .add = .{ 0, 2 } }}, 3 },
+        .{ true, .{ .expr = .{ .bnot = 10 }}, 10 },
+        .{ true, .{ .store = .{ .dest = 0, .source = 1 }}, 1 },
+        .{ false, .{ .store = .{ .dest = 0, .source = 1 }}, 2 },
+        .{ false, .{ .store = .{ .dest = 2, .source = 1 }}, 2 },
+    };
+
+    for (tests) |t| {
+        try expectEqual(t[0], t[1].usesVal(t[2]));
+    }
+}
 
 test "inst reader" {
     const insts = [_]Inst{

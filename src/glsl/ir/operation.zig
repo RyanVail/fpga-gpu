@@ -1,3 +1,4 @@
+const std = @import("std");
 const ir = @import("../ir.zig");
 const Type = ir.Type;
 const Val = ir.Val;
@@ -137,4 +138,44 @@ pub const Op = union(Tag) {
             else => unreachable,
         };
     }
+
+    /// Checks if this operation uses the supplied value.
+    pub fn usesVal(self: Self, val: Val.Id) bool {
+        return switch (self) {
+            inline else => |o| {
+                return switch (@TypeOf(o)) {
+                    Single => o == val,
+                    Dual => o[0] == val or o[1] == val,
+                    Cast => o.value == val,
+                    else => unreachable,
+                };
+            },
+        };
+    }
 };
+
+const expectEqual = std.testing.expectEqual;
+
+test "uses val" {
+    const Test = struct{ bool, Op, Val.Id };
+    const tests = [_]Test{
+        .{ true, .initSingle(.bnot, 0), 0 },
+        .{ false, .initSingle(.lnot, 4), 0 },
+        .{ true, .initDual(.add, 1, 3), 3 },
+        .{ false, .initDual(.add, 1, 2), 3 },
+        .{ false, .initDual(.mul, 5, 2), 3 },
+        .{ true, .initDual(.ge, 0, 0), 0 },
+        .{ true, .{ .cast = .{
+            .type = .{ .primitive = .int },
+            .value = 100,
+        } }, 100 },
+        .{ false, .{ .cast = .{
+            .type = .{ .primitive = .float },
+            .value = 25,
+        } }, 100 },
+    };
+
+    for (tests) |t| {
+        try expectEqual(t[0], t[1].usesVal(t[2]));
+    }
+}
