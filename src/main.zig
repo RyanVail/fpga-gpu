@@ -1,21 +1,23 @@
 const std = @import("std");
 const fpga_gpu = @import("fpga_gpu");
 const glsl = @import("glsl.zig");
+const ir = @import("ir.zig");
 
 test {
-    _ = glsl.parser.type;
-    _ = glsl.parser.Token;
-    _ = glsl.parser.Tokenizer;
-    _ = glsl.parser.operator;
-    _ = glsl.parser.Scope;
-    _ = glsl.parser.Expr;
-    _ = glsl.parser.Func;
-    _ = glsl.parser.@"var";
-    _ = glsl.ir;
-    _ = glsl.ir.operation;
-    _ = glsl.ir.Block;
-    _ = glsl.ir.Value;
-    _ = glsl.ir.Range;
+    _ = glsl.parser;
+    _ = glsl.type;
+    _ = glsl.Token;
+    _ = glsl.Tokenizer;
+    _ = glsl.operator;
+    _ = glsl.Scope;
+    _ = glsl.Expr;
+    _ = glsl.Func;
+    _ = glsl.@"var";
+    _ = ir;
+    _ = ir.operation;
+    _ = ir.Block;
+    _ = ir.Value;
+    _ = ir.Range;
 
     std.testing.refAllDecls(@This());
 }

@@ -1,10 +1,10 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const parser = @import("../parser.zig");
-const @"var" = parser.@"var";
-const Tokenizer = parser.Tokenizer;
-const Var = parser.@"var";
-const Expr = parser.Expr;
+const glsl = @import("../glsl.zig");
+const @"var" = glsl.@"var";
+const Tokenizer = glsl.Tokenizer;
+const Var = glsl.@"var";
+const Expr = glsl.Expr;
 const ir = @import("../ir.zig");
 const InstWriter = ir.InstWriter;
 
@@ -118,7 +118,7 @@ pub fn parse(
             };
 
             tok = try iter.next();
-            const op = parser.Op.read(tok) orelse {
+            const op = glsl.Op.read(tok) orelse {
                 return error.ExpectedAssign;
             };
 

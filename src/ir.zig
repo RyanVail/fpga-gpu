@@ -1,14 +1,15 @@
 pub const operation = @import("ir/operation.zig");
-pub const Type = parser.Type;
 pub const Block = @import("ir/Block.zig");
 pub const Value = @import("ir/Value.zig");
 pub const Range = @import("ir/Range.zig");
 
+const glsl = @import("glsl.zig");
+const Type = glsl.Type;
+const Primitive = glsl.Primitive;
+
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
-const parser = @import("parser.zig");
-const Primitive = parser.Primitive;
 
 pub const Val = struct {
     pub const Id = u32;

@@ -1,9 +1,9 @@
 const std = @import("std");
-const parser = @import("../parser.zig");
-const Type = parser.Type;
-const Primitive = parser.Primitive;
-const Token = parser.Token;
-const Tokenizer = parser.Tokenizer;
+const glsl = @import("../glsl.zig");
+const Type = glsl.Type;
+const Primitive = glsl.Primitive;
+const Token = glsl.Token;
+const Tokenizer = glsl.Tokenizer;
 
 const ReadError = Tokenizer.Error || error{
     ExpectedArg,

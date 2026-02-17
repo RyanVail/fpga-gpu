@@ -1,6 +1,6 @@
 const std = @import("std");
-const parser = @import("../parser.zig");
-const Token = parser.Token;
+const glsl = @import("../glsl.zig");
+const Token = glsl.Token;
 
 const Self = @This();
 

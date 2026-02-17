@@ -1,8 +1,8 @@
 const std = @import("std");
 const ir = @import("../ir.zig");
-const Type = ir.Type;
 const Val = ir.Val;
-const parser = @import("../parser.zig");
+const glsl = @import("../glsl.zig");
+const Type = glsl.Type;
 
 pub const Tag = enum {
     add,
@@ -106,7 +106,7 @@ pub const Op = union(Tag) {
         };
     }
 
-    pub fn initDual(op: parser.Op, a: Val.Id, b: Val.Id) Self {
+    pub fn initDual(op: glsl.Op, a: Val.Id, b: Val.Id) Self {
         const args = Dual{ a, b };
         return switch (op) {
             .add => .{ .add = args },
@@ -130,7 +130,7 @@ pub const Op = union(Tag) {
         };
     }
 
-    pub fn initSingle(op: parser.Op, arg: Val.Id) Self {
+    pub fn initSingle(op: glsl.Op, arg: Val.Id) Self {
         return switch (op) {
             .sub => .{ .neg = arg },
             .bnot => .{ .bnot = arg },

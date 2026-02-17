@@ -1,18 +1,18 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
-const parser = @import("../parser.zig");
-const VarId = parser.@"var".Id;
-const Scope = parser.Scope;
-const Op = parser.Op;
-const Tokenizer = parser.Tokenizer;
+const glsl = @import("../glsl.zig");
+const VarId = glsl.@"var".Id;
+const Scope = glsl.Scope;
+const Op = glsl.Op;
+const Tokenizer = glsl.Tokenizer;
 const ir = @import("../ir.zig");
 const Val = ir.Val;
 const InstWriter = ir.InstWriter;
-const Weight = parser.operator.Weight;
+const Weight = glsl.operator.Weight;
 
 const Tok = union(enum) {
-    tok: parser.Token,
+    tok: glsl.Token,
     val: Val.Id,
 };
 
@@ -173,7 +173,7 @@ fn translateValue(
         },
         .number => try writer.write(
             allocator,
-            try parser.parseNum(iter.getSrc(tok.tok)),
+            try glsl.parser.parseNum(iter.getSrc(tok.tok)),
         ),
         else => error.ExpectedValue,
     };

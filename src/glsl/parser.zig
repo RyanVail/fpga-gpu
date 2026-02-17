@@ -1,23 +1,9 @@
 const std = @import("std");
 
-pub const Token = @import("parser/Token.zig");
-pub const Tokenizer = @import("parser/Tokenizer.zig");
-
-pub const operator = @import("parser/operator.zig");
-pub const Op = operator.Op;
-
-pub const @"type" = @import("parser/type.zig");
-pub const Type = @"type".Type;
-pub const Primitive = @"type".Primitive;
-
-pub const Func = @import("parser/Func.zig");
-pub const @"var" = @import("parser/var.zig");
-pub const Scope = @import("parser/Scope.zig");
-pub const Expr = @import("parser/Expr.zig");
+const ir = @import("../ir.zig");
+const glsl = @import("../glsl.zig");
 
 pub const TokenIter = std.mem.TokenIterator(u8, .any);
-
-const ir = @import("ir.zig");
 
 // TODO: This is very quick and dirty number parser.
 pub fn parseNum(str: []const u8) std.fmt.ParseIntError!ir.Inst {

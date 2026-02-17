@@ -1,9 +1,9 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const parser = @import("../parser.zig");
-const Type = parser.Type;
-const Tokenizer = parser.Tokenizer;
-const Scope = parser.Scope;
+const glsl = @import("../glsl.zig");
+const Type = glsl.Type;
+const Tokenizer = glsl.Tokenizer;
+const Scope = glsl.Scope;
 const ir = @import("../ir.zig");
 const InstWriter = ir.InstWriter;
 

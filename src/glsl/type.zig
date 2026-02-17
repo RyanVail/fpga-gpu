@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const parser = @import("../parser.zig");
+const parser = @import("../glsl.zig");
 const Tokenizer = parser.Tokenizer;
 
 pub const Type = struct {
