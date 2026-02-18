@@ -2,6 +2,7 @@ pub const operation = @import("ir/operation.zig");
 pub const Block = @import("ir/Block.zig");
 pub const Value = @import("ir/Value.zig");
 pub const Range = @import("ir/Range.zig");
+pub const Pipeline = @import("ir/pipeline.zig").Pipeline;
 
 const glsl = @import("glsl.zig");
 const Type = glsl.Type;

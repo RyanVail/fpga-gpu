@@ -18,6 +18,7 @@ test {
     _ = ir.Block;
     _ = ir.Value;
     _ = ir.Range;
+    _ = ir.Pipeline;
 
     std.testing.refAllDecls(@This());
 }
