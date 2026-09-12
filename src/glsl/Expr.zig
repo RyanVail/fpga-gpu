@@ -168,8 +168,12 @@ fn translateValue(
     }
 
     return switch (tok.tok.tag) {
-        .identifier => scope.getVar(iter.getSrc(tok.tok)) orelse {
-            return error.UnknownIdentifier;
+        .identifier => b: {
+            const var_id = scope.getVar(iter.getSrc(tok.tok)) orelse {
+                return error.UnknownIdentifier;
+            };
+
+            break :b try writer.write(allocator, .{ .load = var_id });
         },
         .number => try writer.write(
             allocator,
@@ -251,10 +255,13 @@ test "parse with variables" {
         .{ .alloca = .{ .constant = false, .primitive = .int } },
         .{ .alloca = .{ .constant = false, .primitive = .int } },
         .{ .alloca = .{ .constant = false, .primitive = .int } },
-        .{ .expr = .{ .add = .{ 2, 1 } } },
+        .{ .load = 2 },
+        .{ .load = 1 },
+        .{ .expr = .{ .add = .{ 3, 4 } } },
+        .{ .load = 0 },
         .{ .num = .{ .int = 2 } },
-        .{ .expr = .{ .mul = .{ 0, 4 } } },
-        .{ .expr = .{ .div = .{ 5, 3 } } },
+        .{ .expr = .{ .mul = .{ 6, 7 } } },
+        .{ .expr = .{ .div = .{ 8, 5 } } },
     };
 
     var iter = Tokenizer.from("a * 2 / (j + c)");

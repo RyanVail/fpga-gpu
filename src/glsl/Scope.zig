@@ -3,7 +3,6 @@ const Allocator = std.mem.Allocator;
 const glsl = @import("../glsl.zig");
 const @"var" = glsl.@"var";
 const Tokenizer = glsl.Tokenizer;
-const Var = glsl.@"var";
 const Expr = glsl.Expr;
 const ir = @import("../ir.zig");
 const InstWriter = ir.InstWriter;
@@ -11,7 +10,7 @@ const InstWriter = ir.InstWriter;
 const Self = @This();
 
 parent: ?*Self = null,
-variables: std.StringHashMap(Var.Id),
+variables: std.StringHashMap(@"var".Id),
 
 const State = enum {
     start,
@@ -222,7 +221,7 @@ pub fn parse(
     }
 }
 
-pub fn getVar(self: Self, name: []const u8) ?Var.Id {
+pub fn getVar(self: Self, name: []const u8) ?@"var".Id {
     if (self.variables.get(name)) |v| {
         return v;
     }
@@ -230,7 +229,11 @@ pub fn getVar(self: Self, name: []const u8) ?Var.Id {
     return if (self.parent) |p| p.getVar(name) else null;
 }
 
-pub fn addVar(self: *Self, name: []const u8, id: Var.Id) Allocator.Error!void {
+pub fn addVar(
+    self: *Self,
+    name: []const u8,
+    id: @"var".Id
+) Allocator.Error!void {
     try self.variables.putNoClobber(name, id);
 }
 
@@ -490,13 +493,15 @@ test "var def within if" {
         .{ .alloca = .{ .constant = true, .primitive = .int } },
         .{ .num = .{ .int = 4 } },
         .{ .store = .{ .dest = 0, .source = 1 } },
+        .{ .load = 0 },
         .{ .num = .{ .int = 3 } },
-        .{ .expr = .{ .gt = .{ 0, 3 } } },
-        .{ .cond_branch = .{ .value = 4, .on_true = 0, .on_false = 1 } },
+        .{ .expr = .{ .gt = .{ 3, 4 } } },
+        .{ .cond_branch = .{ .value = 5, .on_true = 0, .on_false = 1 } },
         .{ .label = 0 },
         .{ .alloca = .{ .constant = false, .primitive = .int } },
-        .{ .store = .{ .dest = 7, .source = 0 } },
-        .{ .free = 7 },
+        .{ .load = 0 },
+        .{ .store = .{ .dest = 8, .source = 9 } },
+        .{ .free = 8 },
         .{ .branch = 2 },
         .{ .label = 1 },
         .{ .label = 2 },
@@ -557,15 +562,17 @@ test "var assign within if" {
         .{ .alloca = .{ .primitive = .int } },
         .{ .num = .{ .int = 3 } },
         .{ .store = .{ .dest = 1, .source = 2 } },
+        .{ .load = 1 },
         .{ .num = .{ .int = 2 } },
-        .{ .expr = .{ .gt = .{ 1, 4 } } },
-        .{ .cond_branch = .{ .value = 5, .on_true = 0, .on_false = 1 } },
+        .{ .expr = .{ .gt = .{ 4, 5 } } },
+        .{ .cond_branch = .{ .value = 6, .on_true = 0, .on_false = 1 } },
         .{ .label = 0 },
-        .{ .store = .{ .dest = 0, .source = 1 } },
+        .{ .load = 1 },
+        .{ .store = .{ .dest = 0, .source = 9 } },
         .{ .branch = 2 },
         .{ .label = 1 },
         .{ .num = .{ .int = 0 } },
-        .{ .store = .{ .dest = 0, .source = 11 } },
+        .{ .store = .{ .dest = 0, .source = 13 } },
         .{ .label = 2 },
         .{ .free = 1 },
         .{ .free = 0 },
