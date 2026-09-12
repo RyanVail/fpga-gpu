@@ -25,7 +25,7 @@ fn isValid(self: *const Self) bool {
 
 /// Reads a basic block from a stream of insts.
 pub fn read(allocator: Allocator, reader: *InstReader) Allocator.Error!Self {
-    var insts: std.ArrayList(Inst) = .{};
+    var insts: std.ArrayList(Inst) = .empty;
     while (reader.next()) |inst| {
         try insts.append(allocator, inst);
         if (inst.isBranch()) {

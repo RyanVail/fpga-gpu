@@ -165,7 +165,7 @@ pub fn instReader(buffer: []const Inst) InstReader {
 pub const InstWriter = struct {
     const Self = @This();
 
-    buffer: std.ArrayList(Inst) = .{},
+    buffer: std.ArrayList(Inst) = .empty,
 
     pub fn write(
         self: *Self,

@@ -183,7 +183,7 @@ fn collectToks(
     allocator: Allocator,
     iter: *Tokenizer,
 ) ![]Tok {
-    var toks: std.ArrayList(Tok) = .{};
+    var toks: std.ArrayList(Tok) = .empty;
 
     var depth: usize = 0;
     while (true) {
