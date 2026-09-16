@@ -1,28 +1,21 @@
 `include "dcache.svh"
 
 interface dcache_if #(
-    // The bit width of a byte address.
-    parameter addr_width,
-
-    // The bit width of a line address.
-    parameter line_addr_width,
-
-    // The bit width of a cache line.
-    parameter line_width
+    parameter dcache_if_params p
 );
     typedef struct packed {
         // If a dirty cache line was ejected after writing.
         logic valid;
 
         // The address of the line being ejected.
-        logic [line_addr_width-1:0] addr;
+        logic [p.line_addr_width-1:0] addr;
 
         // The data of the line being ejected.
-        logic [line_width-1:0] data;
+        logic [p.line_width-1:0] data;
     } ejected_s;
 
     // The address to read or write to.
-    logic [addr_width-1:0] addr;
+    logic [p.addr_width-1:0] addr;
 
     // If the last read / write was a miss.
     logic miss;
@@ -37,7 +30,7 @@ interface dcache_if #(
     logic r_valid;
 
     // The read cache line.
-    logic [line_width-1:0] read;
+    logic [p.line_width-1:0] read;
 
     // The size of the data being written.
     dcache_data_size_e w_size;
@@ -49,7 +42,7 @@ interface dcache_if #(
     logic w_dirty;
 
     // The cache line data to write.
-    logic [line_width-1:0] write;
+    logic [p.line_width-1:0] write;
 
     // Holds the information of ejected cache lines.
     ejected_s ejected;

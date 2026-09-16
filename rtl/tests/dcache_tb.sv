@@ -1,35 +1,34 @@
 `include "dcache.svh"
 
 module dcache_tb #(
-    parameter addr_width = 16,
-    parameter line_addr_width = 13,
-    parameter line_width = 64,
-    parameter depth = 64
+    parameter dcache_if_params p = '{
+        addr_width: 16,
+        line_addr_width: 13,
+        line_width: 64
+    },
+
+    parameter int depth = 64
 ) (
     input clk_i,
 
-    input logic [addr_width-1:0] addr_i,
+    input logic [p.addr_width-1:0] addr_i,
     output logic miss_o,
 
     input dcache_data_size_e r_size_i,
     input logic r_req_i,
     output logic r_valid_o,
-    output logic [line_width-1:0] read_o,
+    output logic [p.line_width-1:0] read_o,
 
     input dcache_data_size_e w_size_i,
     input logic w_req_i,
     input logic w_dirty_i,
-    input logic [line_width-1:0] write_i,
+    input logic [p.line_width-1:0] write_i,
 
     output logic ejected_valid_o,
-    output logic [line_addr_width-1:0] ejected_addr_o,
-    output logic [line_width-1:0] ejected_o
+    output logic [p.line_addr_width-1:0] ejected_addr_o,
+    output logic [p.line_width-1:0] ejected_o
 );
-    dcache_if #(
-        .addr_width(addr_width),
-        .line_addr_width(line_addr_width),
-        .line_width(line_width)
-    ) bus();
+    dcache_if #(p) bus();
 
     assign bus.addr = addr_i;
     assign miss_o = bus.miss;
@@ -48,9 +47,7 @@ module dcache_tb #(
     assign ejected_o = bus.ejected.data;
 
     dcache #(
-        .addr_width(addr_width),
-        .line_addr_width(line_addr_width),
-        .line_width(line_width),
+        .p(p),
         .depth(depth)
     ) cache (
         .clk_i(clk_i),

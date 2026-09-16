@@ -1,22 +1,20 @@
 `include "utils.svh"
 
 module mem_ctrl #(
-    parameter addr_width,
-    parameter line_addr_width,
-    parameter line_width,
+    parameter dcache_if_params dcache_params,
 
-    parameter sdram_addr_width,
-    parameter bank_addr_width,
-    parameter row_addr_width,
-    parameter col_addr_width,
-    parameter bus_width,
+    parameter int sdram_addr_width,
+    parameter int bank_addr_width,
+    parameter int row_addr_width,
+    parameter int col_addr_width,
+    parameter int bus_width,
 
-    parameter refresh_interval,
-    parameter init_cycles,
-    parameter t_cas_lat,
-    parameter t_rc_lat,
-    parameter t_ras_lat,
-    parameter t_rp_lat
+    parameter int refresh_interval,
+    parameter int init_cycles,
+    parameter int t_cas_lat,
+    parameter int t_rc_lat,
+    parameter int t_ras_lat,
+    parameter int t_rp_lat
 ) (
     input clk_i,
 
@@ -24,7 +22,7 @@ module mem_ctrl #(
     output enabled_o,
 
     // The address to read or write to.
-    input [addr_width-1:0] addr_i,
+    input [dcache_params.addr_width-1:0] addr_i,
 
     // If this controller is ready for another command.
     output data_ready_o,
@@ -39,13 +37,13 @@ module mem_ctrl #(
     output r_valid_o,
 
     // The read value.
-    output [line_width-1:0] read_o,
+    output [dcache_params.line_width-1:0] read_o,
 
     // If a write should be issued.
     input w_valid_i,
 
     // The value to write.
-    input [line_width-1:0] write_i,
+    input [dcache_params.line_width-1:0] write_i,
 
     // The size of the value to write.
     dcache_data_size_e w_size_i,
@@ -63,8 +61,8 @@ module mem_ctrl #(
     output [row_addr_width-1:0] sdram_a_o,
     inout [bus_width-1:0] dq_io
 );
-    initial `assertEqual(0, line_width % bus_width);
-    localparam blocks_per_line = line_width / bus_width;
+    initial `assertEqual(0, dcache_params.line_width % bus_width);
+    localparam int blocks_per_line = dcache_params.line_width / bus_width;
 
     initial `assertEqual(1 << $clog2(blocks_per_line), blocks_per_line);
 
@@ -76,7 +74,9 @@ module mem_ctrl #(
 
     assign dcache.addr = (r_valid_i | w_valid_i) ? addr_i : {
         missed_line_addr,
-        (addr_width - line_addr_width)'(block_index * bus_bytes)
+        (dcache_params.addr_width - dcache_params.line_addr_width)'(
+            block_index * bus_bytes
+        )
     };
 
     assign dcache.r_size = r_size_i;
@@ -88,11 +88,11 @@ module mem_ctrl #(
 
     assign dcache.r_req = (!busy & r_valid_i) | reading_sdram_done;
 
-    wire [line_addr_width-1:0] sdram_base_addr = (reading_sdram)
+    wire [dcache_params.line_addr_width-1:0] sdram_base_addr = (reading_sdram)
         ? missed_line_addr
         : ejected_line_addr;
 
-    wire [sdram_addr_width-1:0] sdram_addr = (
+    wire [sdram_addr_width-1:0] sdram_addr = sdram_addr_width'(
         sdram_base_addr * blocks_per_line
     ) + sdram_addr_width'(block_index);
 
@@ -142,13 +142,13 @@ module mem_ctrl #(
     );
 
     // The saved addr being read / written to when a miss occurs.
-    logic [line_addr_width-1:0] missed_line_addr;
+    logic [dcache_params.line_addr_width-1:0] missed_line_addr;
 
     // If the command currently issued is a write to the dcache.
     logic writing_dcache;
 
     // The saved data of a missed write.
-    logic [line_width-1:0] saved_write;
+    logic [dcache_params.line_width-1:0] saved_write;
 
     // The saved size of a missed write.
     dcache_data_size_e saved_w_size;
@@ -157,7 +157,7 @@ module mem_ctrl #(
     logic [blocks_per_line-1:0][bus_width-1:0] ejected_line;
 
     // The address of the ejected line.
-    logic [line_addr_width-1:0] ejected_line_addr;
+    logic [dcache_params.line_addr_width-1:0] ejected_line_addr;
 
     // If an ejected line is being written to the SDRAM.
     logic writing_sdram;
@@ -183,7 +183,7 @@ module mem_ctrl #(
             dcache.w_size = saved_w_size;
         end else if (reading_sdram) begin
             dcache.w_req = sdram_r_valid_o;
-            dcache.write = line_width'(sdram_read);
+            dcache.write = dcache_params.line_width'(sdram_read);
             dcache.w_size = dcache_data_size_of(bus_width);
         end else begin
             dcache.w_req = w_valid_i;
@@ -221,8 +221,8 @@ module mem_ctrl #(
             busy <= r_valid_i | w_valid_i;
             writing_dcache <= w_valid_i;
             missed_line_addr <= addr_i[
-                addr_width - 1
-                : addr_width - line_addr_width
+                dcache_params.addr_width - 1
+                : dcache_params.addr_width - dcache_params.line_addr_width
             ];
         end else begin
             if (w_valid_no_miss | r_valid_no_miss) begin
@@ -231,9 +231,7 @@ module mem_ctrl #(
                 busy <= !reading_sdram_done;
             end
         end
-    end
 
-    always_ff @(posedge clk_i) begin
         // Going to the next block when a block read is finished or a block
         // write is issued to the SDRAM.
         block_index <= block_index + move_next_block;

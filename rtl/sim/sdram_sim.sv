@@ -15,48 +15,48 @@ typedef enum bit [2:0] {
 } sdram_burst_len;
 
 module sdram_sim #(
-    parameter banks = 4,
-    parameter rows = 8192,
-    parameter bus_width = 16,
+    parameter int banks = 4,
+    parameter int rows = 8192,
+    parameter int bus_width = 16,
 
     // The number of data entries within a column.
-    parameter col_width = 512,
+    parameter int col_width = 512,
 
-    parameter bank_addr_width = 2,
-    parameter row_addr_width = 13,
-    parameter col_addr_width = 9,
+    parameter int bank_addr_width = 2,
+    parameter int row_addr_width = 13,
+    parameter int col_addr_width = 9,
 
     // The number of clock cycles after *clk_en_i* is high before this SDRAM
     // chip is ready to be issued commands.
-    parameter init_delay_cycles,
+    parameter int init_delay_cycles,
 
     // The clock cycles from a read / write command being issued to data being
     // written / read.
-    parameter t_cas_lat,
+    parameter int t_cas_lat,
 
     // The clock cycles after when a read / write issued before another
     // read / write command can be issued.
-    parameter t_ccd_lat,
+    parameter int t_ccd_lat,
 
     // The clock cycles after an active command before a read / write command
     // can be issued to the same bank.
-    parameter t_rcd_lat,
+    parameter int t_rcd_lat,
 
     // The clock cycles after an active command before another active command
     // can be issued to the same bank.
-    parameter t_rc_lat,
+    parameter int t_rc_lat,
 
     // The clock cycles after an active command before a precharge command can
     // be issued to the same bank.
-    parameter t_ras_lat,
+    parameter int t_ras_lat,
 
     // The clock cycles after an precharge command before a active command can
     // be issued to the same bank.
-    parameter t_rp_lat,
+    parameter int t_rp_lat,
 
     // The clock cycles after a load command before another command can be
     // issued.
-    parameter t_mrd_lat
+    parameter int t_mrd_lat
 ) (
     input clk_i,
     input clk_en_i,

@@ -5,7 +5,10 @@
 module mem_ctrl_IS42S16160G_7TL #(
     // The number of rows to simulate. Used to keep the simulation time down.
     // The real hardware has 8192 rows.
-    parameter rows = 16
+    parameter int rows = 16,
+
+    parameter int line_width = 64,
+    parameter int dcache_depth = 64
 ) (
     input clk_i,
     output enabled_o,
@@ -89,20 +92,18 @@ module mem_ctrl_IS42S16160G_7TL #(
 
     localparam sdram_addr_width = bank_addr_width + row_addr_width + col_addr_width;
     localparam addr_width = sdram_addr_width - (line_width / bus_width);
-    localparam line_width = 64;
     localparam line_addr_width = addr_width - $clog2(line_width / 8);
-    localparam dcache_depth = 64;
 
-    dcache_if #(
-        .addr_width(addr_width),
-        .line_addr_width(line_addr_width),
-        .line_width(line_width)
-    ) dcache_bus();
+    localparam dcache_if_params dcache_params = '{
+        addr_width: addr_width,
+        line_addr_width: line_addr_width,
+        line_width: line_width
+    };
+
+    dcache_if #(dcache_params) dcache_bus();
 
     dcache #(
-        .addr_width(addr_width),
-        .line_addr_width(line_addr_width),
-        .line_width(line_width),
+        .p(dcache_params),
         .depth(dcache_depth)
     ) cache (
         .clk_i(clk_i),
@@ -110,9 +111,7 @@ module mem_ctrl_IS42S16160G_7TL #(
     );
 
     mem_ctrl #(
-        .addr_width(addr_width),
-        .line_addr_width(line_addr_width),
-        .line_width(line_width),
+        .dcache_params(dcache_params),
         .sdram_addr_width(sdram_addr_width),
         .bank_addr_width(bank_addr_width),
         .row_addr_width(row_addr_width),

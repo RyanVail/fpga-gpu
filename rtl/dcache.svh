@@ -22,4 +22,15 @@ function dcache_data_size_e dcache_data_size_of(int size);
     endcase
 endfunction
 
+typedef struct {
+    // The bit width of a byte address.
+    int addr_width;
+
+    // The bit width of a line address.
+    int line_addr_width;
+
+    // The bit width of a cache line.
+    int line_width;
+} dcache_if_params;
+
 `endif
