@@ -16,6 +16,7 @@ COMP_FLAGS := -Wall \
              -MAKEFLAGS --quiet \
 			 --cc --exe --build \
 			 -j 0 \
+             -Wno-PROCASSINIT \
 			 -I$(RTL_DIR) -I$(RTL_SIM)
 SIM_FLAGS  := +verilator+quiet
 WAVE_FLAGS := --trace-fst

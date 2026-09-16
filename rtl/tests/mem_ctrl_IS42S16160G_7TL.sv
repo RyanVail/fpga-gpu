@@ -112,6 +112,8 @@ module mem_ctrl_IS42S16160G_7TL #(
 
     mem_ctrl #(
         .addr_width(addr_width),
+        .line_addr_width(line_addr_width),
+        .line_width(line_width),
         .sdram_addr_width(sdram_addr_width),
         .bank_addr_width(bank_addr_width),
         .row_addr_width(row_addr_width),

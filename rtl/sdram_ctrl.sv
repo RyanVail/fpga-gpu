@@ -50,10 +50,10 @@ module sdram_ctrl #(
 
     assign enabled_o = init_state == 15;
 
-    logic [$clog2(init_cycles)-1:0] init_cnt;
-    logic [3:0] init_state;
+    logic [$clog2(init_cycles)-1:0] init_cnt = init_cycles[$clog2(init_cycles)-1:0];
+    logic [3:0] init_state = 0;
 
-    logic [2:0] state;
+    logic [2:0] state = 0;
 
     // Waiting for the next command to come through.
     localparam [2:0] STATE_IDLE = 0;
@@ -70,15 +70,8 @@ module sdram_ctrl #(
 
     localparam [2:0] STATE_READ_WRITE = 5;
 
-    sdram_cmd_e cmd;
+    sdram_cmd_e cmd = SDRAM_CMD_NOP;
     assign {ras_o, cas_o, we_o} = cmd;
-
-    initial begin
-        cmd = SDRAM_CMD_NOP;
-        init_cnt = init_cycles[$clog2(init_cycles)-1:0];
-        init_state = 0;
-        state = 0;
-    end
 
     assign cs_o = 0;
 
@@ -112,29 +105,21 @@ module sdram_ctrl #(
         && rp_lat == 0;
 
     localparam refresh_interval_val = refresh_interval[$clog2(refresh_interval)-1:0];
-    logic [$clog2(refresh_interval)-1:0] refresh_lat;
+    logic [$clog2(refresh_interval)-1:0] refresh_lat = 0;
     wire refreshing = refresh_lat < 16;
 
     localparam t_cas_lat_val = t_cas_lat[$clog2(t_cas_lat):0];
-    logic [$clog2(t_cas_lat):0] cas_lat;
+    logic [$clog2(t_cas_lat):0] cas_lat = 0;
 
     localparam t_rc_lat_val = t_rc_lat[$clog2(t_rc_lat)-1:0] - 1;
-    logic [$clog2(t_rc_lat)-1:0] rc_lat;
+    logic [$clog2(t_rc_lat)-1:0] rc_lat = 0;
 
     localparam t_ras_lat_val = t_ras_lat[$clog2(t_ras_lat)-1:0] - 1;
-    logic [$clog2(t_ras_lat)-1:0] ras_lat;
+    logic [$clog2(t_ras_lat)-1:0] ras_lat = 0;
 
     localparam t_rp_lat_val = t_rp_lat[$clog2(t_rp_lat)-1:0] - 1;
-    logic [$clog2(t_rp_lat)-1:0] rp_lat;
+    logic [$clog2(t_rp_lat)-1:0] rp_lat = 0;
 
-    initial begin
-        refresh_lat = 0;
-        cas_lat = 0;
-        ras_lat = 0;
-        rp_lat = 0;
-    end
-
-    // Managing latency timers.
     always_ff @(posedge clk_i) begin
         if (state == STATE_CLOSE) begin
             rp_lat <= t_rp_lat_val;
@@ -167,9 +152,7 @@ module sdram_ctrl #(
         end else begin
             if (refresh_lat != 0) refresh_lat <= refresh_lat - 1;
         end
-    end
 
-    always_ff @(posedge clk_i) begin
         casez (init_state)
             0: begin
                 cmd <= SDRAM_CMD_NOP;

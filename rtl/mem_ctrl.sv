@@ -4,6 +4,8 @@
 
 module mem_ctrl #(
     parameter addr_width,
+    parameter line_addr_width,
+    parameter line_width,
 
     parameter sdram_addr_width,
     parameter bank_addr_width,
@@ -63,9 +65,6 @@ module mem_ctrl #(
     output [row_addr_width-1:0] sdram_a_o,
     inout [bus_width-1:0] dq_io
 );
-    localparam line_addr_width = dcache.line_addr_width;
-    localparam line_width = dcache.line_width;
-
     initial `assertEqual(0, line_width % bus_width);
     localparam blocks_per_line = line_width / bus_width;
 
@@ -196,8 +195,7 @@ module mem_ctrl #(
     end
 
     // If the current operation on the SDRAM is done.
-    logic sdram_done;
-    initial sdram_done = 0;
+    logic sdram_done = 0;
 
     // The current SDRAM data block being written or read from the cache line.
     logic [$clog2(blocks_per_line)-1:0] block_index;
@@ -213,8 +211,7 @@ module mem_ctrl #(
     assign read_o = dcache.read;
 
     // If this controller is busy.
-    logic busy;
-    initial busy = 0;
+    logic busy = 0;
 
     wire w_valid_no_miss = writing_dcache & !dcache.miss
         & !reading_sdram & !writing_sdram;
