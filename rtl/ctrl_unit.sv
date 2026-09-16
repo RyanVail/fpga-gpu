@@ -1,4 +1,6 @@
-`include "alu.sv"
+`include "utils.svh"
+`include "dcache.svh"
+`include "alu.svh"
 
 module ctrl_unit #(
     // The maximum number of instructions that can be loaded into a single

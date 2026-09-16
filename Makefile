@@ -3,6 +3,7 @@ MAKEFLAGS += --silent
 TEST_DIR  := tests/
 BUILD_DIR := build/
 RTL_DIR   := rtl/
+RTL_SIM   := rtl/sim/
 RTL_TEST  := rtl/tests/
 TESTS     := $(wildcard $(TEST_DIR)*.cpp)
 DEPS      := $(wildcard $(BUILD_DIR)*.d)
@@ -17,7 +18,7 @@ COMP_FLAGS := -Wall \
 			 --cc --exe --build \
 			 -j 0 \
              -Wno-PROCASSINIT \
-			 -I$(RTL_DIR) -I$(RTL_SIM)
+			 +incdir+$(RTL_DIR) +incdir+$(RTL_SIM)
 SIM_FLAGS  := +verilator+quiet
 WAVE_FLAGS := --trace-fst
 

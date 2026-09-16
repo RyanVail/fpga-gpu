@@ -1,4 +1,4 @@
-`include "utils.sv"
+`include "utils.svh"
 `include "sdram.svh"
 
 typedef enum bit {
@@ -14,9 +14,7 @@ typedef enum bit [2:0] {
     BURST_LEN_PAGE
 } sdram_burst_len;
 
-/* verilator lint_off DECLFILENAME */
 module sdram_sim #(
-/* verilator lint_on DECLFILENAME */
     parameter banks = 4,
     parameter rows = 8192,
     parameter bus_width = 16,

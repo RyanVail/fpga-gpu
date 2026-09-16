@@ -1,6 +1,4 @@
-`include "sim/sdram.sv"
-`include "sdram_ctrl.sv"
-`include "utils.sv"
+`include "utils.svh"
 
 module sdram_IS42S16160G_7TL #(
     // The number of rows to simulate. Used to keep the simulation time down.

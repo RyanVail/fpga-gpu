@@ -1,6 +1,3 @@
-`ifndef DCACHE_IF_SVH
-`define DCACHE_IF_SVH
-
 `include "dcache.svh"
 
 interface dcache_if #(
@@ -89,5 +86,3 @@ interface dcache_if #(
         output ejected
     );
 endinterface
-
-`endif

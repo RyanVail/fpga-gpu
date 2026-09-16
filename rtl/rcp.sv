@@ -1,5 +1,4 @@
-`include "rcp_stage.sv"
-`include "utils.sv"
+`include "utils.svh"
 
 // Approximates a reciprocal function.
 //

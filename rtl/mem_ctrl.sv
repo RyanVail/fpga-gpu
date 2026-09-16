@@ -1,6 +1,4 @@
-`include "sdram_ctrl.sv"
-`include "dcache_if.svh"
-`include "utils.sv"
+`include "utils.svh"
 
 module mem_ctrl #(
     parameter addr_width,

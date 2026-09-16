@@ -1,5 +1,5 @@
-`ifndef TEST_UTILS_SV
-`define TEST_UTILS_SV
+`ifndef TEST_UTILS_SVH
+`define TEST_UTILS_SVH
 
 `define assertEqual(expected, value) \
     if ((value) !== (expected)) begin \

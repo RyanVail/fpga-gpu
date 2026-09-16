@@ -1,7 +1,6 @@
-`include "sim/sdram.sv"
-`include "dcache.sv"
-`include "mem_ctrl.sv"
-`include "utils.sv"
+`include "utils.svh"
+`include "dcache.svh"
+`include "dcache_if.sv"
 
 module mem_ctrl_IS42S16160G_7TL #(
     // The number of rows to simulate. Used to keep the simulation time down.

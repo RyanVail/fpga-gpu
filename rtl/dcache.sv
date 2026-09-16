@@ -1,5 +1,4 @@
-`include "dcache_if.svh"
-`include "utils.sv"
+`include "utils.svh"
 
 module dcache #(
     parameter addr_width,

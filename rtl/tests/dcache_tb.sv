@@ -1,4 +1,4 @@
-`include "dcache_if.svh"
+`include "dcache.svh"
 
 module dcache_tb #(
     parameter addr_width = 16,
