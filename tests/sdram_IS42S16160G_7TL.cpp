@@ -39,34 +39,34 @@ static void write_read(DUT* dut) {
     init(dut);
 
     dut->addr_i = 0;
-    dut->r_valid_i = 0;
-    dut->w_valid_i = 0;
+    dut->r_req_i = 0;
+    dut->w_req_i = 0;
 
     pulse(dut);
 
-    assert(dut->data_ready_o);
+    assert(dut->can_req_o);
     assert(!dut->r_valid_o);
-    dut->w_valid_i = 1;
+    dut->w_req_i = 1;
     dut->write_i = 123;
     dut->addr_i = 0;
 
     pulse(dut);
 
-    assert(!dut->data_ready_o);
-    dut->w_valid_i = 0;
+    assert(!dut->can_req_o);
+    dut->w_req_i = 0;
     dut->addr_i = 0;
 
-    while (!dut->data_ready_o) pulse(dut);
-    dut->r_valid_i = 1;
+    while (!dut->can_req_o) pulse(dut);
+    dut->r_req_i = 1;
 
     pulse(dut);
-    assert(!dut->data_ready_o);
-    dut->r_valid_i = 0;
+    assert(!dut->can_req_o);
+    dut->r_req_i = 0;
 
     while (!dut->r_valid_o) pulse(dut);
     assert(dut->read_o == 123);
 
-    while (!dut->data_ready_o) pulse(dut);
+    while (!dut->can_req_o) pulse(dut);
 }
 
 static void rand_writes(DUT* dut) {
@@ -81,8 +81,8 @@ static void rand_writes(DUT* dut) {
     std::uniform_int_distribution<uint16_t> value_dist(0, max_value);
     std::uniform_int_distribution<size_t> addr_dist(0, max_addr);
 
-    dut->w_valid_i = 0;
-    dut->r_valid_i = 0;
+    dut->w_req_i = 0;
+    dut->r_req_i = 0;
     pulse(dut);
 
     uint16_t values[max_addr + 1];
@@ -91,19 +91,19 @@ static void rand_writes(DUT* dut) {
     for (size_t i = 0; i <= max_addr; i++) {
         const uint16_t value = value_dist(gen);
 
-        dut->w_valid_i = 1;
+        dut->w_req_i = 1;
 
         values[i] = value;
         dut->addr_i = i;
         dut->write_i = value;
 
         pulse(dut);
-        dut->w_valid_i = 0;
+        dut->w_req_i = 0;
 
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 
-    dut->w_valid_i = 0;
+    dut->w_req_i = 0;
 
     // Randomly writing.
     for (size_t i = 0; i < iterations; i++) {
@@ -112,30 +112,30 @@ static void rand_writes(DUT* dut) {
 
         values[addr] = value;
 
-        dut->w_valid_i = 1;
+        dut->w_req_i = 1;
         dut->addr_i = addr;
         dut->write_i = value;
 
         pulse(dut);
-        dut->w_valid_i = 0;
+        dut->w_req_i = 0;
 
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 
-    dut->w_valid_i = 0;
+    dut->w_req_i = 0;
 
     // Reading back the values.
     for (size_t i = 0; i <= max_addr; i++) {
         dut->addr_i = i;
-        dut->r_valid_i = 1;
+        dut->r_req_i = 1;
 
         pulse(dut);
-        dut->r_valid_i = 0;
+        dut->r_req_i = 0;
 
         while (!dut->r_valid_o) pulse(dut);
         assert(dut->read_o == values[i]);
 
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 }
 
@@ -157,30 +157,30 @@ void ordered_read_writes(DUT* dut) {
     for (size_t i = 0; i <= max_addr; i++) {
         const uint16_t value = value_dist(gen);
 
-        dut->w_valid_i = 1;
+        dut->w_req_i = 1;
 
         values[i] = value;
         dut->addr_i = i;
         dut->write_i = value;
 
         pulse(dut);
-        dut->w_valid_i = 0;
+        dut->w_req_i = 0;
 
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 
     // Reading back the values.
     for (size_t i = 0; i <= max_addr; i++) {
         dut->addr_i = i;
-        dut->r_valid_i = 1;
+        dut->r_req_i = 1;
 
         pulse(dut);
-        dut->r_valid_i = 0;
+        dut->r_req_i = 0;
 
         while (!dut->r_valid_o) pulse(dut);
         assert(dut->read_o == values[i]);
 
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 }
 
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 
     assert(!dut->enabled_o);
     while (!dut->enabled_o) pulse(dut);
-    while (!dut->data_ready_o) pulse(dut);
+    while (!dut->can_req_o) pulse(dut);
 
     write_read(dut);
     ordered_read_writes(dut);

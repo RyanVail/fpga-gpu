@@ -1,4 +1,5 @@
 `include "utils.svh"
+`include "sdram.svh"
 
 module sdram_IS42S16160G_7TL #(
     // The number of rows to simulate. Used to keep the simulation time down.
@@ -10,10 +11,10 @@ module sdram_IS42S16160G_7TL #(
 
     input [addr_width-1:0] addr_i,
 
-    output data_ready_o,
+    output can_req_o,
 
-    input r_valid_i,
-    input w_valid_i,
+    input r_req_i,
+    input w_req_i,
 
     output r_valid_o,
 
@@ -32,87 +33,51 @@ module sdram_IS42S16160G_7TL #(
     localparam clk_cycle_ns = 7.5;
 
     // 8192 refreshes per 64ms
-    localparam refresh_interval = $rtoi(
-        $ceil((64 * 1e6) / 8192 / clk_cycle_ns)
-    );
-
-    localparam init_cycles = $rtoi($ceil(init_delay_ns / clk_cycle_ns));
-    localparam t_cas_lat = 2;
-    localparam t_ccd_lat = 1;
-    localparam t_rcd_lat = 2;
-    localparam t_rc_lat = 8;
-    localparam t_ras_lat = 6;
-    localparam t_rp_lat = 2;
-    localparam t_mrd_lat = 2;
-
-    logic clk_en;
-    logic cs;
-    logic ras;
-    logic cas;
-    logic we;
-    logic [bank_addr_width-1:0] bank;
-    logic [row_addr_width-1:0] sdram_a;
-    logic [bus_width-1:0] dq_io;
-
-    sdram_sim #(
-        .banks(banks),
-        .rows(rows),
-        .bus_width(bus_width),
-        .col_width(col_width),
-        .bank_addr_width(bank_addr_width),
-        .row_addr_width(row_addr_width),
-        .col_addr_width(col_addr_width),
-        .init_delay_cycles(init_cycles),
-        .t_cas_lat(t_cas_lat),
-        .t_ccd_lat(t_ccd_lat),
-        .t_rcd_lat(t_rcd_lat),
-        .t_rc_lat(t_rc_lat),
-        .t_ras_lat(t_ras_lat),
-        .t_rp_lat(t_rp_lat),
-        .t_mrd_lat(t_mrd_lat)
-    ) sim (
-        .clk_i(clk_i),
-        .clk_en_i(clk_en),
-        .cs_i(cs),
-        .ras_i(ras),
-        .cas_i(cas),
-        .we_i(we),
-        .bank_i(bank),
-        .sdram_a_i(sdram_a),
-        .dq_io(dq_io)
+    localparam refreshes_per_sec = $rtoi(
+        $ceil(1 / 64e-3) * 8192
     );
 
     localparam addr_width = bank_addr_width + row_addr_width + col_addr_width;
 
-    sdram_ctrl #(
-        .bank_addr_width(bank_addr_width),
-        .row_addr_width(row_addr_width),
-        .col_addr_width(col_addr_width),
-        .bus_width(bus_width),
-        .addr_width(addr_width),
-        .refresh_interval(refresh_interval),
-        .init_cycles(init_cycles),
-        .t_cas_lat(t_cas_lat),
-        .t_rc_lat(t_rc_lat),
-        .t_ras_lat(t_ras_lat),
-        .t_rp_lat(t_rp_lat)
-    ) ctrl (
+    localparam sdram_if_params sdram_params = '{
+        banks: banks,
+        rows: rows,
+        bus_width: bus_width,
+        col_width: col_width,
+        bank_addr_width: bank_addr_width,
+        row_addr_width: row_addr_width,
+        col_addr_width: col_addr_width,
+        clk_cycle_ns: clk_cycle_ns,
+        init_delay_ns: init_delay_ns,
+        refreshes_per_sec: refreshes_per_sec,
+        t_cas_lat: 2,
+        t_ccd_lat: 1,
+        t_rcd_lat: 2,
+        t_rc_lat: 8,
+        t_ras_lat: 6,
+        t_rp_lat: 2,
+        t_mrd_lat: 2
+    };
+
+    sdram_if #(sdram_params) bus();
+    sdram_sim #(sdram_params) sim (
         .clk_i(clk_i),
-        .addr_i(addr_i),
-        .data_ready_o(data_ready_o),
-        .r_valid_i(r_valid_i),
-        .w_valid_i(w_valid_i),
-        .r_valid_o(r_valid_o),
-        .read_o(read_o),
-        .write_i(write_i),
-        .clk_en_o(clk_en),
-        .cs_o(cs),
-        .ras_o(ras),
-        .cas_o(cas),
-        .we_o(we),
-        .bank_o(bank),
-        .sdram_a_o(sdram_a),
-        .dq_io(dq_io),
-        .enabled_o(enabled_o)
+        .bus(bus)
+    );
+
+    sdram_ctrl_if #(sdram_params) ctrl_bus ();
+    assign enabled_o = ctrl_bus.enabled;
+    assign ctrl_bus.addr = addr_i;
+    assign can_req_o = ctrl_bus.can_req;
+    assign ctrl_bus.r_req = r_req_i;
+    assign ctrl_bus.w_req = w_req_i;
+    assign r_valid_o = ctrl_bus.r_valid;
+    assign read_o = ctrl_bus.read;
+    assign ctrl_bus.write = write_i;
+
+    sdram_ctrl #(sdram_params) sdram_ctrl (
+        .clk_i(clk_i),
+        .ctrl_bus(ctrl_bus),
+        .bus(bus)
     );
 endmodule

@@ -1,54 +1,26 @@
 `include "sdram.svh"
 
 module sdram_ctrl #(
-    parameter bank_addr_width = 2,
-    parameter row_addr_width = 13,
-    parameter col_addr_width = 9,
-    parameter bus_width = 16,
-
-    parameter addr_width,
-    parameter refresh_interval,
-    parameter init_cycles,
-    parameter t_cas_lat,
-    parameter t_rc_lat,
-    parameter t_ras_lat,
-    parameter t_rp_lat
+    parameter sdram_if_params p
 ) (
     input clk_i,
-    output enabled_o,
 
-    input [addr_width-1:0] addr_i,
-
-    output data_ready_o,
-
-    input r_valid_i,
-    input w_valid_i,
-
-    output r_valid_o,
-
-    output [bus_width-1:0] read_o,
-    input [bus_width-1:0] write_i,
-
-    // External SDRAM interface.
-	output clk_en_o,
-    output cs_o,
-    output ras_o,
-    output cas_o,
-    output we_o,
-
-    output [bank_addr_width-1:0] bank_o,
-    output [row_addr_width-1:0] sdram_a_o,
-    inout [bus_width-1:0] dq_io
+    sdram_ctrl_if.device ctrl_bus,
+    sdram_if.controller bus
 );
-    assign clk_en_o = 1;
+    assign bus.clk_en = 1;
 
-    logic [bank_addr_width-1:0] bank;
-    assign bank_o = bank;
+    logic [p.bank_addr_width-1:0] bank;
+    assign bus.bank = bank;
 
-    logic [row_addr_width-1:0] sdram_a;
-    assign sdram_a_o = sdram_a;
+    logic [p.row_addr_width-1:0] sdram_a;
+    assign bus.a = sdram_a;
 
-    assign enabled_o = init_state == 15;
+    assign ctrl_bus.enabled = init_state == 15;
+
+    localparam int init_cycles = $rtoi(
+        $ceil(p.init_delay_ns / p.clk_cycle_ns)
+    );
 
     logic [$clog2(init_cycles)-1:0] init_cnt = init_cycles[$clog2(init_cycles)-1:0];
     logic [3:0] init_state = 0;
@@ -71,75 +43,86 @@ module sdram_ctrl #(
     localparam [2:0] STATE_READ_WRITE = 5;
 
     sdram_cmd_e cmd = SDRAM_CMD_NOP;
-    assign {ras_o, cas_o, we_o} = cmd;
+    assign {bus.ras, bus.cas, bus.we} = cmd;
 
-    assign cs_o = 0;
+    assign bus.cs = 0;
 
     typedef struct packed {
-        logic [bank_addr_width-1:0] bank;
-        logic [row_addr_width-1:0] row;
-        logic [col_addr_width-1:0] col;
+        logic [p.bank_addr_width-1:0] bank;
+        logic [p.row_addr_width-1:0] row;
+        logic [p.col_addr_width-1:0] col;
     } sdram_addr_s;
 
     sdram_addr_s sdram_addr;
+    assign sdram_addr = ctrl_bus.addr;
 
-    assign sdram_addr = addr_i;
+    assign bus.dq = (cmd == SDRAM_CMD_WRITE)
+        ? write_data
+        : {p.bus_width{1'bZ}};
 
-    assign dq_io = (cmd == SDRAM_CMD_WRITE) ? write_data : {bus_width{1'bZ}};
-    assign read_o = dq_io;
+    assign ctrl_bus.read = bus.dq;
 
     // The bank and column currently being operated on.
-    logic [bank_addr_width-1:0] bank_sel;
-    logic [col_addr_width-1:0] col_sel;
-    logic [bus_width-1:0] write_data;
+    logic [p.bank_addr_width-1:0] bank_sel;
+    logic [p.col_addr_width-1:0] col_sel;
+    logic [p.bus_width-1:0] write_data;
 
     logic reading;
     logic reading_issued;
 
-    assign r_valid_o = (cas_lat == 0) & reading_issued;
+    assign ctrl_bus.r_valid = (cas_lat == 0) & reading_issued;
 
-    assign data_ready_o = enabled_o
+    assign ctrl_bus.can_req = ctrl_bus.enabled
         && state == STATE_IDLE
         && !refreshing
         && rc_lat == 0
         && rp_lat == 0;
 
+    localparam cycles_per_sec = 1e9 / p.clk_cycle_ns;
+
+    localparam refresh_interval = $rtoi(
+        $ceil(cycles_per_sec / p.refreshes_per_sec)
+    );
+
     localparam refresh_interval_val = refresh_interval[$clog2(refresh_interval)-1:0];
     logic [$clog2(refresh_interval)-1:0] refresh_lat = 0;
     wire refreshing = refresh_lat < 16;
 
-    localparam t_cas_lat_val = t_cas_lat[$clog2(t_cas_lat):0];
-    logic [$clog2(t_cas_lat):0] cas_lat = 0;
+    localparam t_cas_lat_val = p.t_cas_lat[$clog2(p.t_cas_lat):0];
+    logic [$clog2(p.t_cas_lat):0] cas_lat = 0;
 
-    localparam t_rc_lat_val = t_rc_lat[$clog2(t_rc_lat)-1:0] - 1;
-    logic [$clog2(t_rc_lat)-1:0] rc_lat = 0;
+    localparam t_rc_lat_val = p.t_rc_lat[$clog2(p.t_rc_lat)-1:0] - 1;
+    logic [$clog2(p.t_rc_lat)-1:0] rc_lat = 0;
 
-    localparam t_ras_lat_val = t_ras_lat[$clog2(t_ras_lat)-1:0] - 1;
-    logic [$clog2(t_ras_lat)-1:0] ras_lat = 0;
+    localparam t_ras_lat_val = p.t_ras_lat[$clog2(p.t_ras_lat)-1:0] - 1;
+    logic [$clog2(p.t_ras_lat)-1:0] ras_lat = 0;
 
-    localparam t_rp_lat_val = t_rp_lat[$clog2(t_rp_lat)-1:0] - 1;
-    logic [$clog2(t_rp_lat)-1:0] rp_lat = 0;
+    localparam t_rp_lat_val = p.t_rp_lat[$clog2(p.t_rp_lat)-1:0] - 1;
+    logic [$clog2(p.t_rp_lat)-1:0] rp_lat = 0;
 
     always_ff @(posedge clk_i) begin
-        if (state == STATE_CLOSE) begin
+        if (state == STATE_CLOSE
+        || (refresh_lat == 0 && state == STATE_IDLE)) begin
             rp_lat <= t_rp_lat_val;
         end else begin
-            if (rp_lat != 0) rp_lat <= rp_lat -1;
+            if (rp_lat != 0) rp_lat <= rp_lat - 1;
         end
 
         if (state == STATE_ACTIVE) begin
             ras_lat <= t_ras_lat_val;
         end else begin
-            if (ras_lat != 0) ras_lat <= ras_lat -1;
+            if (ras_lat != 0) ras_lat <= ras_lat - 1;
         end
 
         if (state == STATE_READ_WRITE) begin
             cas_lat <= t_cas_lat_val;
         end else begin
-            if (cas_lat != 0) cas_lat <= cas_lat -1;
+            if (cas_lat != 0) cas_lat <= cas_lat - 1;
         end
 
-        if (state == STATE_IDLE && data_ready_o && (r_valid_i || w_valid_i)
+        if (state == STATE_IDLE
+        && ctrl_bus.can_req
+        && (ctrl_bus.r_req || ctrl_bus.w_req)
             || state == STATE_REFRESH_PRECHARGE || state == STATE_REFRESH)
         begin
             rc_lat <= t_rc_lat_val;
@@ -217,23 +200,24 @@ module sdram_ctrl #(
             end
         endcase
 
-        if (r_valid_i && data_ready_o) begin
+        if (ctrl_bus.r_req && ctrl_bus.can_req) begin
             reading <= 1;
         end else if (state == STATE_READ_WRITE) begin
             reading <= 0;
             reading_issued <= reading;
-        end else if (r_valid_o) begin
+        end else if (ctrl_bus.r_valid) begin
             reading_issued <= 0;
         end
 
-        if (enabled_o) casez (state)
+        if (ctrl_bus.enabled) casez (state)
             STATE_IDLE: begin
                 if (refresh_lat == 0) begin
                     cmd <= SDRAM_CMD_PRECHARGE;
                     sdram_a[10] <= 1;
 
                     state <= STATE_REFRESH_PRECHARGE;
-                end else if ((r_valid_i || w_valid_i) && data_ready_o) begin
+                end else if ((ctrl_bus.r_req || ctrl_bus.w_req)
+                && ctrl_bus.can_req) begin
                     cmd <= SDRAM_CMD_ACTIVE;
                     bank <= sdram_addr.bank;
                     sdram_a <= sdram_addr.row;
@@ -241,15 +225,17 @@ module sdram_ctrl #(
                     bank_sel <= sdram_addr.bank;
                     col_sel <= sdram_addr.col;
 
-                    write_data <= write_i;
+                    write_data <= ctrl_bus.write;
 
                     state <= STATE_ACTIVE;
                 end else begin
                     cmd <= SDRAM_CMD_NOP;
                 end
             end STATE_REFRESH_PRECHARGE: begin
-                cmd <= (t_rp_lat == 0) ? SDRAM_CMD_REFRESH : SDRAM_CMD_NOP;
-                state <= (t_rp_lat == 0) ? STATE_IDLE : STATE_REFRESH;
+                cmd <= (rp_lat == 0) ? SDRAM_CMD_REFRESH : SDRAM_CMD_NOP;
+                state <= (rp_lat == 0)
+                    ? STATE_REFRESH
+                    : STATE_REFRESH_PRECHARGE;
             end STATE_REFRESH: begin
                 cmd <= SDRAM_CMD_NOP;
                 state <= (refresh_lat == 0) ? STATE_IDLE : STATE_REFRESH;
@@ -260,7 +246,7 @@ module sdram_ctrl #(
             end STATE_READ_WRITE: begin
                 cmd <= reading ? SDRAM_CMD_READ : SDRAM_CMD_WRITE;
                 bank <= bank_sel;
-                sdram_a[col_addr_width-1:0] <= col_sel;
+                sdram_a[p.col_addr_width-1:0] <= col_sel;
 
                 state <= STATE_CLOSE;
             end STATE_CLOSE: begin

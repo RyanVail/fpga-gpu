@@ -46,35 +46,35 @@ static void pulse(DUT* dut) {
 }
 
 static void write(DUT* dut, DataSize size, uint16_t addr, uint64_t data) {
-    dut->r_valid_i = 0;
-    dut->w_valid_i = 1;
+    dut->r_req_i = 0;
+    dut->w_req_i = 1;
     dut->w_size_i = size;
     dut->addr_i = addr;
     dut->write_i = data;
 
     pulse(dut);
-    assert(!dut->data_ready_o);
+    assert(!dut->can_req_o);
 
-    dut->w_valid_i = 0;
-    while (!dut->data_ready_o) pulse(dut);
+    dut->w_req_i = 0;
+    while (!dut->can_req_o) pulse(dut);
 }
 
 static uint64_t read(DUT* dut, DataSize size, uint16_t addr) {
-    dut->r_valid_i = 1;
-    dut->w_valid_i = 0;
+    dut->r_req_i = 1;
+    dut->w_req_i = 0;
     dut->r_size_i = size;
     dut->addr_i = addr;
 
     pulse(dut);
-    assert(!dut->data_ready_o);
+    assert(!dut->can_req_o);
 
-    dut->r_valid_i = 0;
+    dut->r_req_i = 0;
     while (!dut->r_valid_o) {
         pulse(dut);
-        assert(!dut->data_ready_o || dut->r_valid_o);
+        assert(!dut->can_req_o || dut->r_valid_o);
     }
 
-    while (!dut->data_ready_o) {
+    while (!dut->can_req_o) {
         pulse(dut);
         assert(!dut->r_valid_o);
     }
@@ -164,8 +164,8 @@ static void ordered_read_writes(DUT* dut) {
     std::uniform_int_distribution<size_t> addr_dist(0, max_addr);
     std::uniform_int_distribution<uint8_t> rw_dist(0, 1);
 
-    dut->w_valid_i = 0;
-    dut->r_valid_i = 0;
+    dut->w_req_i = 0;
+    dut->r_req_i = 0;
     pulse(dut);
 
     uint64_t values[max_addr + 1];
@@ -176,13 +176,13 @@ static void ordered_read_writes(DUT* dut) {
         write(dut, DATA_64_BITS, i * 8, value);
         values[i] = value;
 
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 
     for (size_t i = 0; i <= max_addr; i++) {
         const uint64_t value = read(dut, DATA_64_BITS, i * 8);
         assert(value == values[i]);
-        while (!dut->data_ready_o) pulse(dut);
+        while (!dut->can_req_o) pulse(dut);
     }
 }
 
@@ -199,8 +199,8 @@ static void rand_read_writes(DUT* dut) {
     std::uniform_int_distribution<size_t> addr_dist(0, max_addr);
     std::uniform_int_distribution<uint8_t> rw_dist(0, 1);
 
-    dut->w_valid_i = 0;
-    dut->r_valid_i = 0;
+    dut->w_req_i = 0;
+    dut->r_req_i = 0;
     pulse(dut);
 
     uint64_t values[max_addr + 1];
@@ -249,7 +249,7 @@ int main(int argc, char** argv) {
 
     assert(!dut->enabled_o);
     while (!dut->enabled_o) pulse(dut);
-    while (!dut->data_ready_o) pulse(dut);
+    while (!dut->can_req_o) pulse(dut);
 
     write_read(dut);
     write_read_eject(dut);
