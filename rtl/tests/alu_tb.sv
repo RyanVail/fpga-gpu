@@ -24,6 +24,10 @@ module alu_tb #(
     output logic [dcache_params.line_width-1:0] write_o,
     output dcache_data_size_e w_size_o,
 
+    output logic r_req_o,
+    output logic [mem_addr_width-1:0] r_addr_o,
+    output dcache_data_size_e r_size_o,
+
     // High when an interrupt is raised.
     output iupt_o,
 
@@ -34,20 +38,22 @@ module alu_tb #(
 
     assign mem_ctrl_bus.enabled = 1;
     assign mem_ctrl_bus.can_req = 1;
-    assign mem_ctrl_bus.r_req = 0;
-    assign mem_ctrl_bus.r_size = dcache_data_size_e'('X);
     assign mem_ctrl_bus.r_valid = 0;
     assign mem_ctrl_bus.read = 'X;
-    assign w_req_o = mem_ctrl_bus.w_req;
+
+    assign r_addr_o = mem_ctrl_bus.addr;
     assign w_addr_o = mem_ctrl_bus.addr;
-    assign write_o = mem_ctrl_bus.write;
+
+    assign r_req_o = mem_ctrl_bus.r_req;
+    assign r_size_o = mem_ctrl_bus.r_size;
+
+    assign w_req_o = mem_ctrl_bus.w_req;
     assign w_size_o = mem_ctrl_bus.w_size;
+    assign write_o = mem_ctrl_bus.write;
 
     /* verilator lint_off UNUSEDSIGNAL */
     wire a = mem_ctrl_bus.enabled
         && mem_ctrl_bus.can_req
-        && mem_ctrl_bus.r_req
-        && (mem_ctrl_bus.r_size == DCACHE_DATA_8_BITS)
         && mem_ctrl_bus.r_valid
         && (mem_ctrl_bus.read == 0);
     /* verilator lint_on UNUSEDSIGNAL */

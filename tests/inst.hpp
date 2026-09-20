@@ -15,12 +15,13 @@ enum Op : uint8_t {
     CLAMP = 0b0100,
     CONST = 0b0101,
     BRANCH = 0b0110,
-    MEM_WRITE = 0b0111,
-    IADD = 0b1000,
-    ISUB = 0b1001,
-    IMUL = 0b1010,
-    SAVE = 0b1011,
-    MOVE_STACK = 0b1100,
+    MEM_READ = 0b0111,
+    MEM_WRITE = 0b1000,
+    IADD = 0b1001,
+    ISUB = 0b1010,
+    IMUL = 0b1011,
+    SAVE = 0b1100,
+    MOVE_STACK = 0b1101,
 
     INTERRUPT = 0b1111,
 };
@@ -340,6 +341,40 @@ static Inst write(
         Cond::ALWAYS,
         addr,
         source,
+        offset,
+        negative,
+        data_size,
+        shift_regs
+    );
+}
+
+static Inst read(
+    Cond cond,
+    Reg addr,
+    uint16_t offset,
+    bool negative = false,
+    DataSize data_size = DataSize::B32,
+    bool shift_regs = true
+) {
+    return ((uint32_t)(!shift_regs) << 31)
+        | ((uint32_t)cond << 29)
+        | ((uint32_t)inst::Op::MEM_READ << 25)
+        | ((uint32_t)addr << 20)
+        | ((uint8_t)data_size << 13)
+        | ((uint32_t)negative << 12)
+        | offset;
+}
+
+static Inst read(
+    Reg addr,
+    uint16_t offset = 0,
+    bool negative = false,
+    DataSize data_size = DataSize::B32,
+    bool shift_regs = true
+) {
+    return read(
+        Cond::ALWAYS,
+        addr,
         offset,
         negative,
         data_size,

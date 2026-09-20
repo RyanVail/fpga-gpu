@@ -39,8 +39,6 @@ module ctrl_unit #(
 
     assign mem_ctrl_bus.enabled = 1;
     assign mem_ctrl_bus.can_req = 1;
-    assign mem_ctrl_bus.r_req = 0;
-    assign mem_ctrl_bus.r_size = dcache_data_size_e'('X);
     assign mem_ctrl_bus.r_valid = 0;
     assign mem_ctrl_bus.read = 'X;
 

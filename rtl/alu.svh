@@ -34,12 +34,13 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_CLAMP = 4'b0100,
     ALU_OP_CONST = 4'b0101,
     ALU_OP_BRANCH = 4'b0110,
-    ALU_OP_MEM_WRITE = 4'b0111,
-    ALU_OP_IADD = 4'b1000,
-    ALU_OP_ISUB = 4'b1001,
-    ALU_OP_IMUL = 4'b1010,
-    ALU_OP_SAVE = 4'b1011,
-    ALU_OP_MOVE_STACK = 4'b1100,
+    ALU_OP_MEM_READ = 4'b0111,
+    ALU_OP_MEM_WRITE = 4'b1000,
+    ALU_OP_IADD = 4'b1001,
+    ALU_OP_ISUB = 4'b1010,
+    ALU_OP_IMUL = 4'b1011,
+    ALU_OP_SAVE = 4'b1100,
+    ALU_OP_MOVE_STACK = 4'b1101,
 
     ALU_OP_INTERRUPT = 4'b1111
 } alu_op_e;
@@ -110,6 +111,18 @@ typedef struct packed {
             // The offset of the branch in instructions.
             logic [23:0] offset;
         } branch;
+
+        struct packed {
+            logic [`REG_INDEX_WIDTH-1:0] addr;
+            logic [`REG_INDEX_WIDTH-1:0] _0;
+
+            // The size of the operation to perform.
+            dcache_data_size_e size;
+
+            // If the offset should be subtracted from the address.
+            logic negative;
+            logic [11:0] offset;
+        } read;
 
         struct packed {
             logic [`REG_INDEX_WIDTH-1:0] addr;

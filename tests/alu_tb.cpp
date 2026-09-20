@@ -192,6 +192,56 @@ static void mul_high(DUT* dut) {
     assert_reg(dut, Reg::R0, expected >> 32);
 }
 
+static void read_offset(DUT* dut) {
+    reset(dut);
+
+    const uint32_t addr = 123;
+    exec(dut, load_const(addr));
+
+    const uint32_t offset = 500;
+    exec(dut, read(Reg::R0, offset));
+
+    assert(dut->r_req_o);
+    assert(dut->r_addr_o == addr + offset);
+    assert(dut->r_size_o == DataSize::B32);
+}
+
+static void read_neg_offset(DUT* dut) {
+    reset(dut);
+
+    const uint32_t addr = 123;
+    exec(dut, load_const(addr));
+
+    const uint32_t offset = 23;
+    exec(dut, read(Reg::R0, offset, true));
+
+    assert(dut->r_req_o);
+    assert(dut->r_addr_o == addr - offset);
+    assert(dut->r_size_o == DataSize::B32);
+}
+
+static void read_sized(DUT* dut) {
+    reset(dut);
+
+    const uint32_t addr = 123;
+    exec(dut, load_const(addr));
+
+    const uint32_t offset = 23;
+    exec(dut, read(Reg::R0, offset, true, DataSize::B8));
+
+    assert(dut->r_req_o);
+    assert(dut->r_addr_o == addr - offset);
+    assert(dut->r_size_o == DataSize::B8);
+}
+
+static void read_cond(DUT* dut) {
+    reset(dut);
+
+    exec(dut, load_const(3));
+    exec(dut, read(Cond::EQZ, Reg::R0, 0));
+    assert(!dut->r_req_o);
+}
+
 static void write_offset(DUT* dut) {
     reset(dut);
 
@@ -243,7 +293,7 @@ static void write_sized(DUT* dut) {
     assert(dut->write_o == value); 
 }
 
-static void cond_write(DUT* dut) {
+static void write_cond(DUT* dut) {
     reset(dut);
 
     exec(dut, load_const(3));
@@ -510,10 +560,17 @@ int main(int argc, char** argv) {
     cond_branch(dut);
     cond_load_const(dut);
     mul_high(dut);
+
+    read_offset(dut);
+    read_neg_offset(dut);
+    read_sized(dut);
+    read_cond(dut);
+
     write_offset(dut);
     write_neg_offset(dut);
     write_sized(dut);
-    cond_write(dut);
+    write_cond(dut);
+
     add_no_reg_shift(dut);
     add_imm_shift(dut);
     add_reg_shift(dut);

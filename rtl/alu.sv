@@ -94,6 +94,7 @@ module alu #(
         casez (op)
             ALU_OP_CONST,
             ALU_OP_BRANCH,
+            ALU_OP_MEM_READ,
             ALU_OP_MEM_WRITE,
             ALU_OP_CLAMP,
             ALU_OP_MOVE_STACK: begin
@@ -126,10 +127,24 @@ module alu #(
 
     always_ff @(posedge clk_i) begin
         if (reset_i) begin
-            mem_bus.w_req <= 0;
             mem_bus.addr <= 'X;
-            mem_bus.write <= 'X;
+
+            mem_bus.r_req <= 0;
+            mem_bus.r_size <= dcache_data_size_e'('X);
+
+            mem_bus.w_req <= 0;
             mem_bus.w_size <= dcache_data_size_e'('X);
+            mem_bus.write <= 'X;
+        end else if (op == ALU_OP_MEM_READ && exec) begin
+            mem_bus.r_req <= 1;
+            mem_bus.r_size <= inst.data.read.size;
+            if (inst.data.read.negative) begin
+                mem_bus.addr <= mem_addr_width'(reg_value_0)
+                    - mem_addr_width'(inst.data.read.offset);
+            end else begin
+                mem_bus.addr <= mem_addr_width'(reg_value_0)
+                    + mem_addr_width'(inst.data.read.offset);
+            end
         end else if (op == ALU_OP_MEM_WRITE && exec) begin
             mem_bus.w_req <= 1;
 
@@ -143,8 +158,13 @@ module alu #(
                     + mem_addr_width'(inst.data.write.offset);
             end
         end else begin
-            mem_bus.w_req <= mem_bus.w_req;
             mem_bus.addr <= mem_bus.addr;
+
+            mem_bus.r_req <= mem_bus.r_req;
+            mem_bus.r_size <= mem_bus.r_size;
+
+            mem_bus.w_req <= mem_bus.w_req;
+            mem_bus.w_size <= mem_bus.w_size;
             mem_bus.write <= mem_bus.write;
         end
     end
@@ -275,6 +295,7 @@ module alu #(
                 i_result = i_width'(regs[0]);
             end
 
+            ALU_OP_MEM_READ,
             ALU_OP_MEM_WRITE: begin
                 i_result = i_width'(regs[last_reg]);
             end
