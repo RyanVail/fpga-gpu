@@ -1,9 +1,9 @@
-#define DUT Vctrl_unit
+#define DUT Vctrl_unit_tb
 
 #define _STR(a) #a
 #define STR(a) _STR(a)
 
-#include "Vctrl_unit.h"
+#include "Vctrl_unit_tb.h"
 #include "verilated.h"
 #include "verilated_fst_c.h"
 #include "inst.hpp"

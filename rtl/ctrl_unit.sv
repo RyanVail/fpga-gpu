@@ -10,11 +10,7 @@ module ctrl_unit #(
     // The width of a memory address.
     parameter mem_addr_width = 16,
 
-    parameter dcache_if_params dcache_params = '{
-        addr_width: mem_addr_width,
-        line_addr_width: mem_addr_width - 3,
-        line_width: 64
-    }
+    parameter dcache_if_params dcache_params
 ) (
     input clk_i,
     input reset_i,
@@ -28,31 +24,14 @@ module ctrl_unit #(
 
     // TODO: This is tmp for testing.
     output iupt_o,
-    output [`REG_WIDTH-1:0] iupt_arg_o
+    output [`REG_WIDTH-1:0] iupt_arg_o,
+
+    mem_ctrl_if mem_ctrl_bus
 );
     localparam inst_index_width = $clog2(inst_limit);
 
     logic [`INST_WIDTH-1:0] inst;
     logic [inst_index_width-1:0] pc;
-
-    mem_ctrl_if #(dcache_params) mem_ctrl_bus();
-
-    assign mem_ctrl_bus.enabled = 1;
-    assign mem_ctrl_bus.can_req = 1;
-    assign mem_ctrl_bus.r_valid = 0;
-    assign mem_ctrl_bus.read = 'X;
-
-    /* verilator lint_off UNUSEDSIGNAL */
-    wire a = mem_ctrl_bus.enabled
-        && mem_ctrl_bus.can_req
-        && mem_ctrl_bus.r_req
-        && mem_ctrl_bus.w_req
-        && (mem_ctrl_bus.r_size == DCACHE_DATA_8_BITS)
-        && (mem_ctrl_bus.w_size == DCACHE_DATA_8_BITS)
-        && mem_ctrl_bus.r_valid
-        && (mem_ctrl_bus.read == 0)
-        && (mem_ctrl_bus.write == 0);
-    /* verilator lint_on UNUSEDSIGNAL */
 
     /* verilator lint_off UNUSEDSIGNAL */
     alu_flags_s alu_flags;
