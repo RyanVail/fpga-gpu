@@ -1,4 +1,6 @@
 `include "utils.svh"
+`include "dcache.svh"
+`include "sdram.svh"
 
 module mem_ctrl #(
     parameter dcache_if_params dcache_params,
@@ -6,38 +8,9 @@ module mem_ctrl #(
 ) (
     input clk_i,
 
-    // If this memory is enabled yet.
-    output enabled_o,
-
-    // The address to read or write to.
-    input [dcache_params.addr_width-1:0] addr_i,
-
-    // If this controller is ready for another command.
-    output can_req_o,
-
-    // If a read should be issued.
-    input r_req_i,
-
-    // The size of the read to perform.
-    dcache_data_size_e r_size_i,
-
-    // If the value is done being read.
-    output r_valid_o,
-
-    // The read value.
-    output [dcache_params.line_width-1:0] read_o,
-
-    // If a write should be issued.
-    input w_req_i,
-
-    // The value to write.
-    input [dcache_params.line_width-1:0] write_i,
-
-    // The size of the value to write.
-    dcache_data_size_e w_size_i,
-
     dcache_if.controller dcache,
-    sdram_ctrl_if.controller sdram
+    sdram_ctrl_if.controller sdram,
+    mem_ctrl_if.device bus
 );
     initial `assertEqual(0, dcache_params.line_width % sdram_params.bus_width);
     localparam int blocks_per_line = (
@@ -50,29 +23,30 @@ module mem_ctrl #(
         + sdram_params.row_addr_width
         + sdram_params.col_addr_width;
 
-    assign enabled_o = sdram.enabled;
+    assign bus.enabled = sdram.enabled;
 
     // Mark the data in the dcache dirty only when a write is issued to this
     // unit not when loading from SDRAM.
-    assign dcache.w_dirty = w_req_i | (reading_sdram_done & writing_dcache);
+    assign dcache.w_dirty = bus.w_req
+        | (reading_sdram_done & writing_dcache);
 
     localparam int bus_bytes = sdram_params.bus_width / 8;
 
-    assign dcache.addr = (r_req_i | w_req_i) ? addr_i : {
+    assign dcache.addr = (bus.r_req | bus.w_req) ? bus.addr : {
         missed_line_addr,
         (dcache_params.addr_width - dcache_params.line_addr_width)'(
             block_index * bus_bytes
         )
     };
 
-    assign dcache.r_size = r_size_i;
-    assign dcache.w_size = w_size_i;
+    assign dcache.r_size = bus.r_size;
+    assign dcache.w_size = bus.w_size;
 
     wire [blocks_per_line-1:0][
         sdram_params.bus_width-1:0
     ] dcache_ejected_blocks = dcache.ejected.data;
 
-    assign dcache.r_req = (!busy & r_req_i) | reading_sdram_done;
+    assign dcache.r_req = (!busy & bus.r_req) | reading_sdram_done;
 
     wire [dcache_params.line_addr_width-1:0] sdram_base_addr = (reading_sdram)
         ? missed_line_addr
@@ -135,9 +109,9 @@ module mem_ctrl #(
             dcache.write = dcache_params.line_width'(sdram.read);
             dcache.w_size = dcache_data_size_of(sdram_params.bus_width);
         end else begin
-            dcache.w_req = w_req_i;
-            dcache.write = write_i;
-            dcache.w_size = w_size_i;
+            dcache.w_req = bus.w_req;
+            dcache.write = bus.write;
+            dcache.w_size = bus.w_size;
         end
     end
 
@@ -153,9 +127,9 @@ module mem_ctrl #(
     );
 
     wire r_valid_no_miss = dcache.r_valid & !dcache.miss;
-    assign r_valid_o = r_valid_no_miss & !writing_dcache;
+    assign bus.r_valid = r_valid_no_miss & !writing_dcache;
 
-    assign read_o = dcache.read;
+    assign bus.read = dcache.read;
 
     // If this controller is busy.
     logic busy = 0;
@@ -163,13 +137,13 @@ module mem_ctrl #(
     wire w_valid_no_miss = writing_dcache & !dcache.miss
         & !reading_sdram & !writing_sdram;
 
-    assign can_req_o = !r_req_i & !w_req_i & !busy;
+    assign bus.can_req = !bus.r_req & !bus.w_req & !busy;
 
     always_ff @(posedge clk_i) begin
         if (!busy) begin
-            busy <= r_req_i | w_req_i;
-            writing_dcache <= w_req_i;
-            missed_line_addr <= addr_i[
+            busy <= bus.r_req | bus.w_req;
+            writing_dcache <= bus.w_req;
+            missed_line_addr <= bus.addr[
                 dcache_params.addr_width - 1
                 : dcache_params.addr_width - dcache_params.line_addr_width
             ];
@@ -199,15 +173,15 @@ module mem_ctrl #(
 
         sdram_done <= (block_index == '1) & move_next_block;
 
-        if (!busy & w_req_i) begin
-            saved_write <= write_i;
-            saved_w_size <= w_size_i;
+        if (!busy & bus.w_req) begin
+            saved_write <= bus.write;
+            saved_w_size <= bus.w_size;
         end
     end
 
     // Sanity checks.
     always_ff @(posedge clk_i) begin
         assert (!(reading_sdram & writing_sdram));
-        assert (!(can_req_o & (reading_sdram | writing_sdram)));
+        assert (!(bus.can_req & (reading_sdram | writing_sdram)));
     end
 endmodule

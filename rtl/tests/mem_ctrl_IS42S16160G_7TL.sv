@@ -97,22 +97,29 @@ module mem_ctrl_IS42S16160G_7TL #(
         .bus(dcache_bus)
     );
 
+    mem_ctrl_if #(dcache_params) mem_ctrl_bus();
+
+    assign enabled_o = mem_ctrl_bus.enabled;
+    assign mem_ctrl_bus.addr = addr_i;
+    assign can_req_o = mem_ctrl_bus.can_req;
+
+    assign mem_ctrl_bus.r_req = r_req_i;
+    assign mem_ctrl_bus.r_size = r_size_i;
+    assign mem_ctrl_bus.w_req = w_req_i;
+    assign mem_ctrl_bus.w_size = w_size_i;
+
+    assign r_valid_o = mem_ctrl_bus.r_valid;
+    assign read_o = mem_ctrl_bus.read;
+    assign mem_ctrl_bus.write = write_i;
+
     mem_ctrl #(
         .dcache_params(dcache_params),
         .sdram_params(sdram_params)
     ) ctrl (
         .clk_i(clk_i),
-        .enabled_o(enabled_o),
-        .addr_i(addr_i),
-        .can_req_o(can_req_o),
-        .r_req_i(r_req_i),
-        .r_size_i(r_size_i),
-        .w_req_i(w_req_i),
-        .r_valid_o(r_valid_o),
-        .read_o(read_o),
-        .write_i(write_i),
-        .w_size_i(w_size_i),
+
         .dcache(dcache_bus),
-        .sdram(sdram_ctrl_bus)
+        .sdram(sdram_ctrl_bus),
+        .bus(mem_ctrl_bus)
     );
 endmodule
