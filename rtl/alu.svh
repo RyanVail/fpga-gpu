@@ -11,7 +11,11 @@
 
 // The number of registers.
 // The last register is always a constant zero register.
+// The second to last register is the stack pointer register.
 `define NUM_REGS 32
+
+// The stack pointer and constant zero register don't get shifted.
+`define NON_SHIFT_REGS 2
 
 // The number of registers that can be saved.
 `define NUM_SAVED 8
@@ -35,6 +39,7 @@ typedef enum logic [`ALU_OP_WIDTH-1:0] {
     ALU_OP_ISUB = 4'b1001,
     ALU_OP_IMUL = 4'b1010,
     ALU_OP_SAVE = 4'b1011,
+    ALU_OP_MOVE_STACK = 4'b1100,
 
     ALU_OP_INTERRUPT = 4'b1111
 } alu_op_e;
@@ -134,6 +139,14 @@ typedef struct packed {
 
             logic [6:0] _2;
         } save;
+
+        struct packed {
+            logic [11:0] _0;
+
+            // If the offset should be subtracted from the stack.
+            logic negative;
+            logic [11:0] offset;
+        } move_stack;
 
         logic [24:0] immediate;
     } data;

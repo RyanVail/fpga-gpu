@@ -20,6 +20,7 @@ enum Op : uint8_t {
     ISUB = 0b1001,
     IMUL = 0b1010,
     SAVE = 0b1011,
+    MOVE_STACK = 0b1100,
 
     INTERRUPT = 0b1111,
 };
@@ -62,8 +63,8 @@ enum Reg : uint8_t {
     R27 = 27,
     R28 = 28,
     R29 = 29,
-    R30 = 30,
 
+    SP = 30,
     ZERO = 31,
 };
 
@@ -301,6 +302,7 @@ static Inst load_flags(Cond cond = Cond::ALWAYS, bool shift_regs = true) {
     return load_imm(Imm::FLAGS, cond, shift_regs);
 }
 
+// TODO: This is constructed wrong.
 static Inst write(
     Cond cond,
     Reg addr,
@@ -398,6 +400,23 @@ static Inst save(
     bool shift_regs = false
 ) {
     return save(Cond::ALWAYS, dest, src, shift, shift_regs);
+}
+
+static Inst move_stack(
+    Cond cond,
+    bool negative,
+    uint16_t offset,
+    bool shift_regs = false
+) {
+    return ((uint32_t)(!shift_regs) << 31)
+        | ((uint32_t)cond << 29)
+        | ((uint32_t)inst::Op::MOVE_STACK << 25)
+        | ((uint32_t)negative << 12)
+        | offset;
+}
+
+static Inst move_stack(int16_t offset) {
+    return move_stack(Cond::ALWAYS, offset < 0, std::abs(offset));
 }
 
 }

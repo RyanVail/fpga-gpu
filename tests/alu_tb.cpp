@@ -433,6 +433,30 @@ static void flag_reg(DUT* dut) {
     assert_reg(dut, Reg::R0, Flag::N);
 }
 
+static void move_stack(DUT* dut) {
+    reset(dut);
+
+    assert_reg(dut, Reg::SP, 0);
+    exec(dut, move_stack(10));
+
+    assert_reg(dut, Reg::SP, 10);
+
+    exec(dut, move_stack(-5));
+    assert_reg(dut, Reg::SP, 5);
+
+    exec(dut, move_stack(256));
+    assert_reg(dut, Reg::SP, 261);
+
+    exec(dut, load_const(64820));
+    exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
+    exec(dut, move_stack(Cond::EQZ, true, 10));
+    assert_reg(dut, Reg::SP, 261);
+
+    exec(dut, dual(Op::ADD, Reg::ZERO, Reg::ZERO, true));
+    exec(dut, move_stack(Cond::EQZ, true, 21));
+    assert_reg(dut, Reg::SP, 240);
+}
+
 int main(int argc, char** argv) {
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
@@ -471,6 +495,7 @@ int main(int argc, char** argv) {
     one_over_two_pi_imm(dut);
     save_and_load(dut);
     flag_reg(dut);
+    move_stack(dut);
 
     if (STRICT_RCP) {
         simple_rcp(dut);

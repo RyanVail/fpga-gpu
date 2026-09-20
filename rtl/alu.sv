@@ -59,6 +59,14 @@ module alu #(
         `NUM_REGS - 1
     );
 
+    localparam [`REG_INDEX_WIDTH-1:0] sp_reg = `REG_INDEX_WIDTH'(
+        `NUM_REGS - 2
+    );
+
+    localparam [`REG_INDEX_WIDTH-1:0] last_reg = `REG_INDEX_WIDTH'(
+        `NUM_REGS - 3
+    );
+
     wire [width-1:0] reg_value_0 = (inst.data.triple.reg_0 == zero_reg)
         ? 0 : regs[inst.data.triple.reg_0];
 
@@ -87,7 +95,8 @@ module alu #(
             ALU_OP_CONST,
             ALU_OP_BRANCH,
             ALU_OP_MEM_WRITE,
-            ALU_OP_CLAMP: begin
+            ALU_OP_CLAMP,
+            ALU_OP_MOVE_STACK: begin
                 is_dual = 0;
             end default: begin
                 is_dual = 1;
@@ -235,7 +244,7 @@ module alu #(
             end ALU_OP_MUL, ALU_OP_IMUL: begin
                 i_result = i_value_0 * i_value_1;
             end ALU_OP_RCP: begin
-                i_result = i_width'(regs[`NUM_REGS-2]);
+                i_result = i_width'(regs[last_reg]);
             end ALU_OP_CLAMP: begin
                 if (is_signed) begin
                     if (signed'(i_value_1) > signed'(i_value_0)) begin
@@ -267,7 +276,19 @@ module alu #(
             end
 
             ALU_OP_MEM_WRITE: begin
-                i_result = i_width'(regs[`NUM_REGS-2]);
+                i_result = i_width'(regs[last_reg]);
+            end
+
+            ALU_OP_MOVE_STACK: begin
+                if (inst.data.move_stack.negative) begin
+                    i_result = i_width'(regs[sp_reg] - width'(
+                        inst.data.move_stack.offset
+                    ));
+                end else begin
+                    i_result = i_width'(regs[sp_reg] + width'(
+                        inst.data.move_stack.offset
+                    ));
+                end
             end
 
             default begin
@@ -295,12 +316,18 @@ module alu #(
 
     // Shifting the regs.
     genvar i;
-    generate for (i = 1; i < `NUM_REGS-1; i=i+1) begin
+    generate for (i = 1; i <= sp_reg; i=i+1) begin
         always_ff @(posedge clk_i) begin
             if (reset_i) begin
                 regs[i] <= 0;
             end else if (i == rcp.lat && rcp_ready_o) begin
                 regs[i] <= rcp_r_o;
+            end else if (i == sp_reg) begin
+                if (op == ALU_OP_MOVE_STACK && exec) begin
+                    regs[i] <= width'(i_result);
+                end else begin
+                    regs[i] <= regs[i];
+                end
             end else begin
                 regs[i] <= (inst.keep_regs || !exec)
                     ? regs[i]
