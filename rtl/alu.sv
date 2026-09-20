@@ -22,7 +22,9 @@ module alu #(
 
     // The number of iterations of Newton's method to use for the reciprocal
     // instruction.
-    parameter rcp_iters = 7
+    parameter rcp_iters = 7,
+
+    parameter dcache_if_params dcache_params
 ) (
     input clk_i,
     input reset_i,
@@ -33,10 +35,7 @@ module alu #(
 
     output alu_flags_s flags_o,
 
-    output logic w_valid_o,
-    output logic [mem_addr_width-1:0] w_addr_o,
-    output logic [`REG_WIDTH-1:0] w_write_o,
-    output dcache_data_size_e w_size_o,
+    mem_ctrl_if.controller mem_bus,
 
     // High when an interrupt is raised.
     output iupt_o,
@@ -118,26 +117,26 @@ module alu #(
 
     always_ff @(posedge clk_i) begin
         if (reset_i) begin
-            w_valid_o <= 0;
-            w_addr_o <= 'X;
-            w_write_o <= 'X;
-            w_size_o <= dcache_data_size_e'('X);
+            mem_bus.w_req <= 0;
+            mem_bus.addr <= 'X;
+            mem_bus.write <= 'X;
+            mem_bus.w_size <= dcache_data_size_e'('X);
         end else if (op == ALU_OP_MEM_WRITE && exec) begin
-            w_valid_o <= 1;
+            mem_bus.w_req <= 1;
 
-            w_write_o <= reg_value_1;
-            w_size_o <= inst.data.write.size;
+            mem_bus.write <= dcache_params.line_width'(reg_value_1);
+            mem_bus.w_size <= inst.data.write.size;
             if (inst.data.write.negative) begin
-                w_addr_o <= mem_addr_width'(reg_value_0)
+                mem_bus.addr <= mem_addr_width'(reg_value_0)
                     - mem_addr_width'(inst.data.write.offset);
             end else begin
-                w_addr_o <= mem_addr_width'(reg_value_0)
+                mem_bus.addr <= mem_addr_width'(reg_value_0)
                     + mem_addr_width'(inst.data.write.offset);
             end
         end else begin
-            w_valid_o <= w_valid_o;
-            w_addr_o <= w_addr_o;
-            w_write_o <= w_write_o;
+            mem_bus.w_req <= mem_bus.w_req;
+            mem_bus.addr <= mem_bus.addr;
+            mem_bus.write <= mem_bus.write;
         end
     end
 

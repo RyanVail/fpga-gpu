@@ -8,7 +8,13 @@ module ctrl_unit #(
     parameter inst_limit = 1024,
 
     // The width of a memory address.
-    parameter mem_addr_width = 16
+    parameter mem_addr_width = 16,
+
+    parameter dcache_if_params dcache_params = '{
+        addr_width: mem_addr_width,
+        line_addr_width: mem_addr_width - 3,
+        line_width: 64
+    }
 ) (
     input clk_i,
     input reset_i,
@@ -29,27 +35,42 @@ module ctrl_unit #(
     logic [`INST_WIDTH-1:0] inst;
     logic [inst_index_width-1:0] pc;
 
+    mem_ctrl_if #(dcache_params) mem_ctrl_bus();
+
+    assign mem_ctrl_bus.enabled = 1;
+    assign mem_ctrl_bus.can_req = 1;
+    assign mem_ctrl_bus.r_req = 0;
+    assign mem_ctrl_bus.r_size = dcache_data_size_e'('X);
+    assign mem_ctrl_bus.r_valid = 0;
+    assign mem_ctrl_bus.read = 'X;
+
     /* verilator lint_off UNUSEDSIGNAL */
-    logic alu_w_valid;
-    logic [mem_addr_width-1:0] alu_w_addr;
-    logic [`REG_WIDTH-1:0]alu_w_write;
-    dcache_data_size_e alu_w_size;
+    wire a = mem_ctrl_bus.enabled
+        && mem_ctrl_bus.can_req
+        && mem_ctrl_bus.r_req
+        && mem_ctrl_bus.w_req
+        && (mem_ctrl_bus.r_size == DCACHE_DATA_8_BITS)
+        && (mem_ctrl_bus.w_size == DCACHE_DATA_8_BITS)
+        && mem_ctrl_bus.r_valid
+        && (mem_ctrl_bus.read == 0)
+        && (mem_ctrl_bus.write == 0);
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    /* verilator lint_off UNUSEDSIGNAL */
     alu_flags_s alu_flags;
     /* verilator lint_on UNUSEDSIGNAL */
 
     alu #(
         .pc_width(inst_index_width),
-        .mem_addr_width(mem_addr_width)
+        .mem_addr_width(mem_addr_width),
+        .dcache_params(dcache_params)
     ) alu (
         .clk_i(clk_i),
         .reset_i(reset_i || load_i),
         .inst_i(inst),
         .pc_o(pc),
         .flags_o(alu_flags),
-        .w_valid_o(alu_w_valid),
-        .w_addr_o(alu_w_addr),
-        .w_write_o(alu_w_write),
-        .w_size_o(alu_w_size),
+        .mem_bus(mem_ctrl_bus),
         .iupt_o(iupt_o),
         .iupt_arg_o(iupt_arg_o)
     );

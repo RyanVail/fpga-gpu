@@ -1,10 +1,10 @@
-#define DUT Valu
+#define DUT Valu_tb
 
 #define _STR(a) #a
 #define STR(a) _STR(a)
 #define STRICT_RCP true
 
-#include "Valu.h"
+#include "Valu_tb.h"
 #include "verilated.h"
 #include "verilated_fst_c.h"
 #include "inst.hpp"
@@ -41,7 +41,7 @@ static void reset(DUT* dut) {
     pulse(dut);
     dut->reset_i = 0;
 
-    assert(!dut->w_valid_o);
+    assert(!dut->w_req_o);
     assert(dut->pc_o == 0);
     assert(!dut->iupt_o);
 }
@@ -203,9 +203,9 @@ static void write_offset(DUT* dut) {
     const uint32_t offset = 500;
     exec(dut, write(Reg::R1, Reg::R0, offset));
 
-    assert(dut->w_valid_o);
+    assert(dut->w_req_o);
     assert(dut->w_addr_o == addr + offset);
-    assert(dut->w_write_o == value); 
+    assert(dut->write_o == value); 
 }
 
 static void cond_write(DUT* dut) {
@@ -213,7 +213,7 @@ static void cond_write(DUT* dut) {
 
     exec(dut, load_const(3));
     exec(dut, write(Cond::EQZ, Reg::R1, Reg::ZERO, 0));
-    assert(!dut->w_valid_o);
+    assert(!dut->w_req_o);
 }
 
 static void add_no_reg_shift(DUT* dut) {

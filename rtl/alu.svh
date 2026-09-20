@@ -1,6 +1,8 @@
 `ifndef ALU_SVH
 `define ALU_SVH
 
+`include "dcache.svh"
+
 `define INST_WIDTH 32
 `define REG_INDEX_WIDTH 5
 
