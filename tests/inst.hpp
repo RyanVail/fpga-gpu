@@ -88,6 +88,13 @@ enum Imm : uint8_t {
     FLAGS = 31,
 };
 
+enum DataSize : uint8_t {
+    B8 = 0,
+    B16 = 1,
+    B32 = 2,
+    B64 = 3,
+};
+
 typedef Imm Saved;
 typedef uint32_t Inst;
 
@@ -302,13 +309,13 @@ static Inst load_flags(Cond cond = Cond::ALWAYS, bool shift_regs = true) {
     return load_imm(Imm::FLAGS, cond, shift_regs);
 }
 
-// TODO: This is constructed wrong.
 static Inst write(
     Cond cond,
     Reg addr,
     Reg source,
     uint16_t offset,
     bool negative = false,
+    DataSize data_size = DataSize::B32,
     bool shift_regs = true
 ) {
     return ((uint32_t)(!shift_regs) << 31)
@@ -316,7 +323,8 @@ static Inst write(
         | ((uint32_t)inst::Op::MEM_WRITE << 25)
         | ((uint32_t)addr << 20)
         | ((uint32_t)source << 15)
-        | ((uint32_t)negative << 14)
+        | ((uint8_t)data_size << 13)
+        | ((uint32_t)negative << 12)
         | offset;
 }
 
@@ -325,9 +333,18 @@ static Inst write(
     Reg source,
     uint16_t offset = 0,
     bool negative = false,
+    DataSize data_size = DataSize::B32,
     bool shift_regs = true
 ) {
-    return write(Cond::ALWAYS, addr, source, offset, negative, shift_regs);
+    return write(
+        Cond::ALWAYS,
+        addr,
+        source,
+        offset,
+        negative,
+        data_size,
+        shift_regs
+    );
 }
 
 static Inst iupt(Cond cond, Reg reg, bool shift_regs = false) {
@@ -404,8 +421,8 @@ static Inst save(
 
 static Inst move_stack(
     Cond cond,
-    bool negative,
     uint16_t offset,
+    bool negative = false,
     bool shift_regs = false
 ) {
     return ((uint32_t)(!shift_regs) << 31)
@@ -416,7 +433,7 @@ static Inst move_stack(
 }
 
 static Inst move_stack(int16_t offset) {
-    return move_stack(Cond::ALWAYS, offset < 0, std::abs(offset));
+    return move_stack(Cond::ALWAYS, std::abs(offset), offset < 0);
 }
 
 }

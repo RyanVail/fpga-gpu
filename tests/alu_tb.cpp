@@ -205,6 +205,41 @@ static void write_offset(DUT* dut) {
 
     assert(dut->w_req_o);
     assert(dut->w_addr_o == addr + offset);
+    assert(dut->w_size_o == DataSize::B32);
+    assert(dut->write_o == value);
+}
+
+static void write_neg_offset(DUT* dut) {
+    reset(dut);
+
+    const uint32_t addr = 123;
+    const uint32_t value = 0x6E8891;
+    exec(dut, load_const(addr));
+    exec(dut, load_const(value));
+
+    const uint32_t offset = 23;
+    exec(dut, write(Reg::R1, Reg::R0, offset, true));
+
+    assert(dut->w_req_o);
+    assert(dut->w_addr_o == addr - offset);
+    assert(dut->w_size_o == DataSize::B32);
+    assert(dut->write_o == value);
+}
+
+static void write_sized(DUT* dut) {
+    reset(dut);
+
+    const uint32_t addr = 123;
+    const uint32_t value = 0x6E8891;
+    exec(dut, load_const(addr));
+    exec(dut, load_const(value));
+
+    const uint32_t offset = 23;
+    exec(dut, write(Reg::R1, Reg::R0, offset, true, DataSize::B8));
+
+    assert(dut->w_req_o);
+    assert(dut->w_addr_o == addr - offset);
+    assert(dut->w_size_o == DataSize::B8);
     assert(dut->write_o == value); 
 }
 
@@ -414,8 +449,6 @@ static void simple_div(DUT* dut) {
         Shift(true, whole_bits)
     ));
     assert_reg(dut, Reg::R0, expected);
-    // TODO: Remove.
-    //printf("%f\n", (double)dut->iupt_arg_o / (((uint64_t)1 << (32 - whole_bits))));
 }
 
 static void flag_reg(DUT* dut) {
@@ -449,11 +482,11 @@ static void move_stack(DUT* dut) {
 
     exec(dut, load_const(64820));
     exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
-    exec(dut, move_stack(Cond::EQZ, true, 10));
+    exec(dut, move_stack(Cond::EQZ, 10, true));
     assert_reg(dut, Reg::SP, 261);
 
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::ZERO, true));
-    exec(dut, move_stack(Cond::EQZ, true, 21));
+    exec(dut, move_stack(Cond::EQZ, 21, true));
     assert_reg(dut, Reg::SP, 240);
 }
 
@@ -478,6 +511,8 @@ int main(int argc, char** argv) {
     cond_load_const(dut);
     mul_high(dut);
     write_offset(dut);
+    write_neg_offset(dut);
+    write_sized(dut);
     cond_write(dut);
     add_no_reg_shift(dut);
     add_imm_shift(dut);
