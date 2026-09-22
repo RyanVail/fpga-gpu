@@ -5,17 +5,23 @@
 
 #include "Vmem_ctrl_IS42S16160G_7TL.h"
 #include "verilated.h"
-#include "verilated_fst_c.h"
 #include "dcache_tb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <random>
 
+#ifdef WAVE_FST
+    #include "verilated_fst_c.h"
+    static VerilatedFstC* tfp;
+#elif defined(WAVE_VCD)
+    #include "verilated_vcd_c.h"
+    static VerilatedVcdC* tfp;
+#endif
+
 using namespace dcache;
 
 static uint32_t ns = 0;
 static constexpr uint32_t max_ns = 10000000;
-static VerilatedFstC* tfp;
 
 static constexpr uint32_t init_delay_cycles = (uint32_t)(100000 / 7.5);
 static constexpr size_t addr_width = 16;
@@ -242,9 +248,16 @@ int main(int argc, char** argv) {
 
     if (dut->traceCapable) {
         Verilated::traceEverOn(true);
-        tfp = new VerilatedFstC;
-        dut->trace(tfp, -1);
-        tfp->open("build/waves/" STR(DUT) ".fst");
+
+        #ifdef WAVE_FST
+            tfp = new VerilatedFstC;
+            dut->trace(tfp, -1);
+            tfp->open("build/waves/" STR(DUT) ".fst");
+        #elif defined(WAVE_VCD)
+            tfp = new VerilatedVcdC;
+            dut->trace(tfp, -1);
+            tfp->open("build/waves/" STR(DUT) ".vcd");
+        #endif
     }
 
     assert(!dut->enabled_o);

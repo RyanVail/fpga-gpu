@@ -8,6 +8,7 @@ RTL_TEST  := rtl/tests/
 TESTS     := $(wildcard $(TEST_DIR)*.cpp)
 DEPS      := $(wildcard $(BUILD_DIR)*.d)
 WAVES     := 1
+FST       := 0
 
 VERILATOR  ?= verilator
 COMP_FLAGS := -Wall \
@@ -20,10 +21,15 @@ COMP_FLAGS := -Wall \
              -Wno-PROCASSINIT \
 			 +incdir+$(RTL_DIR) +incdir+$(RTL_SIM)
 SIM_FLAGS  := +verilator+quiet
-WAVE_FLAGS := --trace-fst
+FST_FLAGS  := --trace-fst -CFLAGS -DWAVE_FST
+VCD_FLAGS  := --trace-vcd -CFLAGS -DWAVE_VCD
 
 ifeq ($(WAVES), 1)
-	COMP_FLAGS += $(WAVE_FLAGS)
+    ifeq ($(FST), 1)
+        COMP_FLAGS += $(FST_FLAGS)
+    else
+        COMP_FLAGS += $(VCD_FLAGS)
+    endif
 endif
 
 all: build_tests .WAIT run_tests

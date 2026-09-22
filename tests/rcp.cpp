@@ -5,13 +5,19 @@
 
 #include "Vrcp.h"
 #include "verilated.h"
-#include "verilated_fst_c.h"
 #include <cassert>
 #include <cstdint>
 #include <random>
 
+#ifdef WAVE_FST
+    #include "verilated_fst_c.h"
+    static VerilatedFstC* tfp;
+#elif defined(WAVE_VCD)
+    #include "verilated_vcd_c.h"
+    static VerilatedVcdC* tfp;
+#endif
+
 static uint32_t ns = 0;
-static VerilatedFstC* tfp;
 
 static constexpr uint32_t addr_width = 16;
 static constexpr uint32_t line_width = 64;
@@ -80,9 +86,16 @@ int main(int argc, char** argv) {
 
     if (dut->traceCapable) {
         Verilated::traceEverOn(true);
-        tfp = new VerilatedFstC;
-        dut->trace(tfp, -1);
-        tfp->open("build/waves/" STR(DUT) ".fst");
+
+        #ifdef WAVE_FST
+            tfp = new VerilatedFstC;
+            dut->trace(tfp, -1);
+            tfp->open("build/waves/" STR(DUT) ".fst");
+        #elif defined(WAVE_VCD)
+            tfp = new VerilatedVcdC;
+            dut->trace(tfp, -1);
+            tfp->open("build/waves/" STR(DUT) ".vcd");
+        #endif
     }
 
     deltas(dut);

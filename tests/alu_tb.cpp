@@ -6,15 +6,21 @@
 
 #include "Valu_tb.h"
 #include "verilated.h"
-#include "verilated_fst_c.h"
 #include "inst.hpp"
 #include <cassert>
 #include <cstdint>
 
 using namespace inst;
 
+#ifdef WAVE_FST
+    #include "verilated_fst_c.h"
+    static VerilatedFstC* tfp;
+#elif defined(WAVE_VCD)
+    #include "verilated_vcd_c.h"
+    static VerilatedVcdC* tfp;
+#endif
+
 static uint32_t ns = 0;
-static VerilatedFstC* tfp;
 
 static void init(DUT* dut) {
     dut->clk_i = 0;
@@ -548,9 +554,16 @@ int main(int argc, char** argv) {
 
     if (dut->traceCapable) {
         Verilated::traceEverOn(true);
-        tfp = new VerilatedFstC;
-        dut->trace(tfp, -1);
-        tfp->open("build/waves/" STR(DUT) ".fst");
+
+        #ifdef WAVE_FST
+            tfp = new VerilatedFstC;
+            dut->trace(tfp, -1);
+            tfp->open("build/waves/" STR(DUT) ".fst");
+        #elif defined(WAVE_VCD)
+            tfp = new VerilatedVcdC;
+            dut->trace(tfp, -1);
+            tfp->open("build/waves/" STR(DUT) ".vcd");
+        #endif
     }
 
     load_const_and_iupt(dut);
