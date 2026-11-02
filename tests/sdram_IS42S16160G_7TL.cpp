@@ -1,21 +1,11 @@
 #define DUT Vsdram_IS42S16160G_7TL
 
-#define _STR(a) #a
-#define STR(a) _STR(a)
-
 #include "Vsdram_IS42S16160G_7TL.h"
 #include "verilated.h"
 #include <cassert>
 #include <cstdint>
 #include <random>
-
-#ifdef WAVE_FST
-    #include "verilated_fst_c.h"
-    static VerilatedFstC* tfp;
-#elif defined(WAVE_VCD)
-    #include "verilated_vcd_c.h"
-    static VerilatedVcdC* tfp;
-#endif
+#include "utils.hpp"
 
 static uint32_t ns = 0;
 
@@ -28,17 +18,15 @@ static void init(DUT* dut) {
 }
 
 static void pulse(DUT* dut) {
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
-    dut->clk_i = 1;
-
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
     dut->clk_i = 0;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
+
+    dut->clk_i = 1;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
 }
 
 static void write_read(DUT* dut) {
@@ -195,20 +183,7 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-
-    if (dut->traceCapable) {
-        Verilated::traceEverOn(true);
-
-        #ifdef WAVE_FST
-            tfp = new VerilatedFstC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".fst");
-        #elif defined(WAVE_VCD)
-            tfp = new VerilatedVcdC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".vcd");
-        #endif
-    }
+    start_trace(dut);
 
     assert(!dut->enabled_o);
     while (!dut->enabled_o) pulse(dut);
@@ -218,10 +193,8 @@ int main(int argc, char** argv) {
     ordered_read_writes(dut);
     rand_writes(dut);
 
-    if (dut->traceCapable) {
-        pulse(dut);
-        tfp->close();
-    }
+    pulse(dut);
+    stop_trace(dut);
 
     delete dut;
     delete contextp;

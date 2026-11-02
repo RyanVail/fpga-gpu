@@ -1,24 +1,13 @@
 #define DUT Valu_tb
 
-#define _STR(a) #a
-#define STR(a) _STR(a)
-#define STRICT_RCP true
-
 #include "Valu_tb.h"
 #include "verilated.h"
 #include "inst.hpp"
-#include <cassert>
-#include <cstdint>
+#include "utils.hpp"
 
 using namespace inst;
 
-#ifdef WAVE_FST
-    #include "verilated_fst_c.h"
-    static VerilatedFstC* tfp;
-#elif defined(WAVE_VCD)
-    #include "verilated_vcd_c.h"
-    static VerilatedVcdC* tfp;
-#endif
+constexpr bool strict_rcp = true;
 
 static uint32_t ns = 0;
 
@@ -27,17 +16,15 @@ static void init(DUT* dut) {
 }
 
 static void pulse(DUT* dut) {
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
-    dut->clk_i = 1;
-
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
     dut->clk_i = 0;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
+
+    dut->clk_i = 1;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
 }
 
 static void reset(DUT* dut) {
@@ -551,20 +538,7 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-
-    if (dut->traceCapable) {
-        Verilated::traceEverOn(true);
-
-        #ifdef WAVE_FST
-            tfp = new VerilatedFstC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".fst");
-        #elif defined(WAVE_VCD)
-            tfp = new VerilatedVcdC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".vcd");
-        #endif
-    }
+    start_trace(dut);
 
     load_const_and_iupt(dut);
     cond_iupt(dut);
@@ -602,15 +576,13 @@ int main(int argc, char** argv) {
     flag_reg(dut);
     move_stack(dut);
 
-    if (STRICT_RCP) {
+    if (strict_rcp) {
         simple_rcp(dut);
         simple_div(dut);
     }
 
-    if (dut->traceCapable) {
-        pulse(dut);
-        tfp->close();
-    }
+    pulse(dut);
+    stop_trace(dut);
 
     delete dut;
     delete contextp;

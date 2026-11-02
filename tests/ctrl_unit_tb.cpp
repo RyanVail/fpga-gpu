@@ -1,26 +1,14 @@
 #define DUT Vctrl_unit_tb
 
-#define _STR(a) #a
-#define STR(a) _STR(a)
-
 #include "Vctrl_unit_tb.h"
 #include "verilated.h"
 #include "inst.hpp"
-#include <cassert>
 #include <cstdint>
-
-#ifdef WAVE_FST
-    #include "verilated_fst_c.h"
-    static VerilatedFstC* tfp;
-#elif defined(WAVE_VCD)
-    #include "verilated_vcd_c.h"
-    static VerilatedVcdC* tfp;
-#endif
+#include "utils.hpp"
 
 using namespace inst;
 
 static uint32_t ns = 0;
-
 static uint32_t cycles = 0;
 
 static void init(DUT* dut) {
@@ -28,18 +16,15 @@ static void init(DUT* dut) {
 }
 
 static void pulse(DUT* dut) {
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
-    dut->clk_i = 1;
-    cycles++;
-
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
     dut->clk_i = 0;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
+
+    dut->clk_i = 1;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
 }
 
 static void reset(DUT* dut) {
@@ -59,13 +44,13 @@ static void load_inst(DUT* dut, Inst inst) {
 
 // Runs a program until in interrupt is raised in which case the interrupt arg
 // is returned.
-#define run(dut, program) run_intern( \
+#define run(dut, program) run_inner( \
     (dut), \
     (program), \
     sizeof(program) / sizeof((program)[0]) \
 )
 
-static uint32_t run_intern(DUT* dut, const Inst* program, size_t len) {
+static uint32_t run_inner(DUT* dut, const Inst* program, size_t len) {
     reset(dut);
 
     dut->load_i = 1;
@@ -154,30 +139,15 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-
-    if (dut->traceCapable) {
-        Verilated::traceEverOn(true);
-
-        #ifdef WAVE_FST
-            tfp = new VerilatedFstC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".fst");
-        #elif defined(WAVE_VCD)
-            tfp = new VerilatedVcdC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".vcd");
-        #endif
-    }
+    start_trace(dut);
 
     load_const_and_iupt(dut);
     simple_add(dut);
     simple_loop(dut);
     fib(dut);
 
-    if (dut->traceCapable) {
-        pulse(dut);
-        tfp->close();
-    }
+    pulse(dut);
+    stop_trace(dut);
 
     delete dut;
     delete contextp;

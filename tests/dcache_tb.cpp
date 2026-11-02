@@ -1,22 +1,12 @@
 #define DUT Vdcache_tb
 
-#define _STR(a) #a
-#define STR(a) _STR(a)
-
 #include "Vdcache_tb.h"
 #include "verilated.h"
 #include "dcache_tb.hpp"
 #include <cassert>
 #include <cstdint>
 #include <random>
-
-#ifdef WAVE_FST
-    #include "verilated_fst_c.h"
-    static VerilatedFstC* tfp;
-#elif defined(WAVE_VCD)
-    #include "verilated_vcd_c.h"
-    static VerilatedVcdC* tfp;
-#endif
+#include "utils.hpp"
 
 using namespace dcache;
 
@@ -31,17 +21,15 @@ static void init(DUT* dut) {
 }
 
 static void pulse(DUT* dut) {
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
-    dut->clk_i = 1;
-
-    if (dut->traceCapable) tfp->dump(ns);
-    ns++;
-
-    dut->eval();
     dut->clk_i = 0;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
+
+    dut->clk_i = 1;
+    dut->eval();
+    dump_trace(dut, ns);
+    ns++;
 }
 
 static void write(
@@ -208,20 +196,7 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-
-    if (dut->traceCapable) {
-        Verilated::traceEverOn(true);
-
-        #ifdef WAVE_FST
-            tfp = new VerilatedFstC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".fst");
-        #elif defined(WAVE_VCD)
-            tfp = new VerilatedVcdC;
-            dut->trace(tfp, -1);
-            tfp->open("build/waves/" STR(DUT) ".vcd");
-        #endif
-    }
+    start_trace(dut);
 
     init(dut);
     write_read(dut);
@@ -232,10 +207,8 @@ int main(int argc, char** argv) {
     read_invalid_addr(dut);
     ejected_line_sized(dut);
 
-    if (dut->traceCapable) {
-        pulse(dut);
-        tfp->close();
-    }
+    pulse(dut);
+    stop_trace(dut);
 
     delete dut;
     delete contextp;

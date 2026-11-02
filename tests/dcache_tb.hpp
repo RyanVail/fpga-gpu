@@ -1,5 +1,4 @@
-#ifndef DCACHE_HPP
-#define DCACHE_HPP
+#pragma once
 
 namespace dcache {
 
@@ -11,5 +10,3 @@ enum DataSize : uint8_t {
 };
 
 }
-
-#endif
