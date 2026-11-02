@@ -3,7 +3,6 @@
 #include "Vdcache_tb.h"
 #include "verilated.h"
 #include "dcache_tb.hpp"
-#include <cassert>
 #include <cstdint>
 #include <random>
 #include "utils.hpp"
@@ -23,12 +22,12 @@ static void init(DUT* dut) {
 static void pulse(DUT* dut) {
     dut->clk_i = 0;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 
     dut->clk_i = 1;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 }
 
@@ -47,7 +46,7 @@ static void write(
     dut->write_i = data;
     pulse(dut);
 
-    assert(!dut->r_valid_o);
+    assert_eql(false, dut->r_valid_o);
 }
 
 static uint64_t read(DUT* dut, DataSize size, uint16_t addr) {
@@ -57,32 +56,32 @@ static uint64_t read(DUT* dut, DataSize size, uint16_t addr) {
     dut->addr_i = addr;
     pulse(dut);
 
-    assert(dut->r_valid_o);
+    assert_eql(true, dut->r_valid_o);
     return dut->read_o;
 }
 
 static void write_read(DUT* dut) {
     write(dut, DATA_64_BITS, 0, 25);
-    assert(read(dut, DATA_64_BITS, 0) == 25);
+    assert_eql(25, read(dut, DATA_64_BITS, 0));
 }
 
 static void dirty_write(DUT* dut) {
     write(dut, DATA_64_BITS, 0, 0, false);
 
     write(dut, DATA_64_BITS, 0, 5, true);
-    assert(!dut->ejected_valid_o);
+    assert_eql(false, dut->ejected_valid_o);
 
     write(dut, DATA_64_BITS, 64 * 8, 25, true);
-    assert(dut->ejected_valid_o);
-    assert(dut->ejected_addr_o == 0);
-    assert(dut->ejected_o == 5);
+    assert_eql(true, dut->ejected_valid_o);
+    assert_eql(0, dut->ejected_addr_o);
+    assert_eql(5, dut->ejected_o);
 
-    assert(read(dut, DATA_64_BITS, 64 * 8) == 25);
+    assert_eql(25, read(dut, DATA_64_BITS, 64 * 8));
 
-    assert(read(dut, DATA_64_BITS, 0) == 25);
-    assert(dut->ejected_valid_o);
-    assert(dut->ejected_addr_o == 64);
-    assert(dut->ejected_o = 25);
+    assert_eql(25, read(dut, DATA_64_BITS, 0));
+    assert_eql(true, dut->ejected_valid_o);
+    assert_eql(64, dut->ejected_addr_o);
+    assert_eql(25, dut->ejected_o);
 }
 
 // TODO: This should also be testing for uncached writes and ejections too but
@@ -124,7 +123,7 @@ static void rand_cached_writes(DUT* dut) {
         const size_t addr = addr_dist(gen);
         const uint64_t value = value_dist(gen);
 
-        assert(!dut->ejected_valid_o);
+        assert_eql(false, dut->ejected_valid_o);
 
         values[addr] = value;
         write(dut, DATA_64_BITS, addr * 8, value);
@@ -137,7 +136,7 @@ static void rand_cached_writes(DUT* dut) {
 
     // Reading back the values.
     for (size_t i = 0; i < max_addr; i++) {
-        assert(read(dut, DATA_64_BITS, i * 8) == values[i]);
+        assert_eql(values[i], read(dut, DATA_64_BITS, i * 8));
     }
 }
 
@@ -145,9 +144,9 @@ static void mixed_read(DUT* dut) {
     const uint64_t a = 0x9D013E5279D4A96A;
     write(dut, DATA_64_BITS, 0, a);
 
-    assert(read(dut, DATA_16_BITS, 2) == ((a >> 16) & 0xFFFF));
-    assert(read(dut, DATA_16_BITS, 4) == ((a >> 32) & 0xFFFF));
-    assert(read(dut, DATA_32_BITS, 4) == ((a >> 32) & 0xFFFFFFFF));
+    assert_eql((a >> 16) & 0xFFFF, read(dut, DATA_16_BITS, 2));
+    assert_eql((a >> 32) & 0xFFFF, read(dut, DATA_16_BITS, 4));
+    assert_eql((a >> 32) & 0xFFFFFFFF, read(dut, DATA_32_BITS, 4));
 }
 
 static void mixed_size_write_read(DUT* dut) {
@@ -156,10 +155,10 @@ static void mixed_size_write_read(DUT* dut) {
     write(dut, DATA_16_BITS, 0, first);
     write(dut, DATA_8_BITS, 2, second);
 
-    assert(read(dut, DATA_16_BITS, 0) == first);
-    assert(read(dut, DATA_8_BITS, 0) == (first & 255));
-    assert(read(dut, DATA_8_BITS, 1) == (first >> 8));
-    assert(read(dut, DATA_8_BITS, 2) == second);
+    assert_eql(first, read(dut, DATA_16_BITS, 0));
+    assert_eql(first & 0xFF, read(dut, DATA_8_BITS, 0));
+    assert_eql(first >> 8, read(dut, DATA_8_BITS, 1));
+    assert_eql(second, read(dut, DATA_8_BITS, 2));
 }
 
 static void read_invalid_addr(DUT* dut) {
@@ -169,14 +168,14 @@ static void read_invalid_addr(DUT* dut) {
     write(dut, DATA_64_BITS, 0, a);
 
     for (uint16_t i = 0; i < line_width / 8; i++) {
-        assert(read(dut, DATA_64_BITS, i) == a);
+        assert_eql(a, read(dut, DATA_64_BITS, i));
     }
 
-    assert(read(dut, DATA_32_BITS, 0) == (a & 0xFFFFFFFF));
-    assert(read(dut, DATA_32_BITS, 3) == (a & 0xFFFFFFFF));
+    assert_eql(a & 0xFFFFFFFF, read(dut, DATA_32_BITS, 0));
+    assert_eql(a & 0xFFFFFFFF, read(dut, DATA_32_BITS, 3));
 
-    assert(read(dut, DATA_16_BITS, 2) == ((a >> 16) & 0xFFFF));
-    assert(read(dut, DATA_16_BITS, 3) == ((a >> 16) & 0xFFFF));
+    assert_eql((a >> 16) & 0xFFFF, read(dut, DATA_16_BITS, 2));
+    assert_eql((a >> 16) & 0xFFFF, read(dut, DATA_16_BITS, 3));
 }
 
 static void ejected_line_sized(DUT* dut) {
@@ -186,9 +185,9 @@ static void ejected_line_sized(DUT* dut) {
     write(dut, DATA_64_BITS, 0, a, true);
     read(dut, DATA_8_BITS, 64 * 8);
 
-    assert(dut->ejected_valid_o);
-    assert(dut->ejected_addr_o == 0);
-    assert(dut->ejected_o == a);
+    assert_eql(true, dut->ejected_valid_o);
+    assert_eql(0, dut->ejected_addr_o);
+    assert_eql(a, dut->ejected_o);
 }
 
 int main(int argc, char** argv) {
@@ -196,7 +195,7 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-    start_trace(dut);
+    start_trace(dut, &ns);
 
     init(dut);
     write_read(dut);
@@ -208,7 +207,7 @@ int main(int argc, char** argv) {
     ejected_line_sized(dut);
 
     pulse(dut);
-    stop_trace(dut);
+    stop_trace();
 
     delete dut;
     delete contextp;

@@ -18,12 +18,12 @@ static void init(DUT* dut) {
 static void pulse(DUT* dut) {
     dut->clk_i = 0;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 
     dut->clk_i = 1;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 }
 
@@ -74,13 +74,13 @@ static void load_const_and_iupt(DUT* dut) {
     load_inst(dut, iupt(Reg::R5));
 
     for (uint32_t i = 0; i < 6; i++) {
-        assert(!dut->iupt_o);
+        assert_eql(false, dut->iupt_o);
         pulse(dut);
     }
 
     pulse(dut);
-    assert(dut->iupt_o);
-    assert(dut->iupt_arg_o == 294);
+    assert_eql(true, dut->iupt_o);
+    assert_eql(294, dut->iupt_arg_o);
 }
 
 static void simple_add(DUT* dut) {
@@ -91,7 +91,7 @@ static void simple_add(DUT* dut) {
         iupt(Reg::R0),
     };
 
-    assert(run(dut, program) == 294 + 6);
+    assert_eql(294 + 6, run(dut, program));
 }
 
 static void simple_loop(DUT* dut) {
@@ -112,7 +112,7 @@ static void simple_loop(DUT* dut) {
         iupt(Reg::R1),
     };
 
-    assert(run(dut, program) == 40);
+    assert_eql(40, run(dut, program));
 }
 
 static void fib(DUT* dut) {
@@ -131,7 +131,7 @@ static void fib(DUT* dut) {
         iupt(Reg::R1)
     };
 
-    assert(run(dut, program) == expected);
+    assert_eql(expected, run(dut, program));
 }
 
 int main(int argc, char** argv) {
@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-    start_trace(dut);
+    start_trace(dut, &ns);
 
     load_const_and_iupt(dut);
     simple_add(dut);
@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
     fib(dut);
 
     pulse(dut);
-    stop_trace(dut);
+    stop_trace();
 
     delete dut;
     delete contextp;

@@ -2,7 +2,6 @@
 
 #include "Vrcp.h"
 #include "verilated.h"
-#include <cassert>
 #include <cstdint>
 #include <random>
 #include "utils.hpp"
@@ -25,12 +24,12 @@ static void init(DUT* dut) {
 static void pulse(DUT* dut) {
     dut->clk_i = 0;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 
     dut->clk_i = 1;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 }
 
@@ -59,10 +58,10 @@ static void deltas(DUT* dut) {
         pulse(dut);
         dut->v_i = 0;
 
-        assert(dut->ready_o);
+        assert_eql(true, dut->ready_o);
 
         const uint64_t expected = one / dut->a_i;
-        assert(abs(expected - dut->r_o) <= max_delta);
+        assert_eql(true, abs(expected - dut->r_o) <= max_delta);
     }
 }
 
@@ -71,12 +70,12 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-    start_trace(dut);
+    start_trace(dut, &ns);
 
     deltas(dut);
 
     pulse(dut);
-    stop_trace(dut);
+    stop_trace();
 
     delete dut;
     delete contextp;

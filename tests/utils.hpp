@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cassert>
 #include <cstdint>
+#include <cstdlib>
+#include <iostream>
 
 #define _STR(a) #a
 #define STR(a) _STR(a)
@@ -18,7 +19,13 @@
     static VerilatedVcdC* tfp;
 #endif
 
-static void start_trace(DUT* dut) {
+static uint32_t* ns_ptr;
+static DUT* tracing_dut;
+
+static void start_trace(DUT* dut, uint32_t* ns) {
+    tracing_dut = dut;
+    ns_ptr = ns;
+
     if (!dut->traceCapable) {
         return;
     }
@@ -36,14 +43,42 @@ static void start_trace(DUT* dut) {
     #endif
 }
 
-static void dump_trace(DUT* dut, uint32_t ns) {
-    if (dut->traceCapable) {
-        tfp->dump(ns);
+static void dump_trace() {
+    if (tracing_dut->traceCapable) {
+        tfp->dump(*ns_ptr);
     }
 }
 
-static void stop_trace(DUT* dut) {
-    if (dut->traceCapable) {
+static void stop_trace() {
+    if (tracing_dut->traceCapable) {
         tfp->close();
     }
+}
+
+#define assert_eql(expected, value) assert_eql_inner( \
+    __FILE__, \
+    __LINE__, \
+    (expected), \
+    (value) \
+)
+
+static void assert_eql_inner(
+    const char* file,
+    uint32_t line,
+    auto expected,
+    auto value
+) {
+    if (value == expected) {
+        return;
+    }
+
+    std::cerr << "assert ("
+        << file << ":" << line
+        << ") failed. Expected: " << expected
+        << ", found: " << value
+        << std::endl;
+
+    dump_trace();
+    stop_trace();
+    exit(EXIT_FAILURE);
 }

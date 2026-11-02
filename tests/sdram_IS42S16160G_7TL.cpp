@@ -2,7 +2,6 @@
 
 #include "Vsdram_IS42S16160G_7TL.h"
 #include "verilated.h"
-#include <cassert>
 #include <cstdint>
 #include <random>
 #include "utils.hpp"
@@ -20,12 +19,12 @@ static void init(DUT* dut) {
 static void pulse(DUT* dut) {
     dut->clk_i = 0;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 
     dut->clk_i = 1;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 }
 
@@ -38,15 +37,15 @@ static void write_read(DUT* dut) {
 
     pulse(dut);
 
-    assert(dut->can_req_o);
-    assert(!dut->r_valid_o);
+    assert_eql(true, dut->can_req_o);
+    assert_eql(false, dut->r_valid_o);
     dut->w_req_i = 1;
     dut->write_i = 123;
     dut->addr_i = 0;
 
     pulse(dut);
 
-    assert(!dut->can_req_o);
+    assert_eql(false, dut->can_req_o);
     dut->w_req_i = 0;
     dut->addr_i = 0;
 
@@ -54,11 +53,11 @@ static void write_read(DUT* dut) {
     dut->r_req_i = 1;
 
     pulse(dut);
-    assert(!dut->can_req_o);
+    assert_eql(false, dut->can_req_o);
     dut->r_req_i = 0;
 
     while (!dut->r_valid_o) pulse(dut);
-    assert(dut->read_o == 123);
+    assert_eql(123, dut->read_o);
 
     while (!dut->can_req_o) pulse(dut);
 }
@@ -127,7 +126,7 @@ static void rand_writes(DUT* dut) {
         dut->r_req_i = 0;
 
         while (!dut->r_valid_o) pulse(dut);
-        assert(dut->read_o == values[i]);
+        assert_eql(values[i], dut->read_o);
 
         while (!dut->can_req_o) pulse(dut);
     }
@@ -172,7 +171,7 @@ void ordered_read_writes(DUT* dut) {
         dut->r_req_i = 0;
 
         while (!dut->r_valid_o) pulse(dut);
-        assert(dut->read_o == values[i]);
+        assert_eql(values[i], dut->read_o);
 
         while (!dut->can_req_o) pulse(dut);
     }
@@ -183,9 +182,9 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-    start_trace(dut);
+    start_trace(dut, &ns);
 
-    assert(!dut->enabled_o);
+    assert_eql(false, dut->enabled_o);
     while (!dut->enabled_o) pulse(dut);
     while (!dut->can_req_o) pulse(dut);
 
@@ -194,7 +193,7 @@ int main(int argc, char** argv) {
     rand_writes(dut);
 
     pulse(dut);
-    stop_trace(dut);
+    stop_trace();
 
     delete dut;
     delete contextp;

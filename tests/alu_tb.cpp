@@ -18,12 +18,12 @@ static void init(DUT* dut) {
 static void pulse(DUT* dut) {
     dut->clk_i = 0;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 
     dut->clk_i = 1;
     dut->eval();
-    dump_trace(dut, ns);
+    dump_trace();
     ns++;
 }
 
@@ -34,9 +34,9 @@ static void reset(DUT* dut) {
     pulse(dut);
     dut->reset_i = 0;
 
-    assert(!dut->w_req_o);
-    assert(dut->pc_o == 0);
-    assert(!dut->iupt_o);
+    assert_eql(false, dut->w_req_o);
+    assert_eql(0, dut->pc_o);
+    assert_eql(false, dut->iupt_o);
 }
 
 static void exec(DUT* dut, Inst inst) {
@@ -46,19 +46,20 @@ static void exec(DUT* dut, Inst inst) {
 
 #define assert_reg(dut, reg, expected) ({ \
     exec(dut, iupt(reg)); \
-    assert(dut->iupt_o); \
-    assert(dut->iupt_arg_o == expected); \
+    assert_eql(true, dut->iupt_o); \
+    assert_eql(expected, dut->iupt_arg_o); \
 })
 
-#define assert_flag(dut, flag, expected) assert( \
-    (bool)(dut->flags_o & flag) == expected \
+#define assert_flag(dut, flag, expected) assert_eql( \
+    (expected), \
+    (bool)(dut->flags_o & flag) \
 )
 
 #define assert_pc(dut, expected) ({ \
     const Inst old = dut->inst_i; \
     dut->inst_i = nop(); \
     dut->eval(); \
-    assert(dut->pc_o == (expected) + 1); \
+    assert_eql((expected) + 1, dut->pc_o); \
     dut->inst_i = old; \
     dut->eval(); \
 })
@@ -70,13 +71,13 @@ static void load_const_and_iupt(DUT* dut) {
     exec(dut, iupt(Reg::R0));
 
     for (uint32_t i = 0; i < 8; i++) {
-        assert(dut->iupt_o);
-        assert(dut->iupt_arg_o == 26);
+        assert_eql(true, dut->iupt_o);
+        assert_eql(26, dut->iupt_arg_o);
         assert_pc(dut, 1);
     }
 
     exec(dut, load_const(2));
-    assert(!dut->iupt_o);
+    assert_eql(false, dut->iupt_o);
     assert_pc(dut, 2);
 }
 
@@ -86,15 +87,15 @@ static void cond_iupt(DUT* dut) {
     exec(dut, load_const(64820));
     exec(dut, dual(Op::ADD, Reg::R0, Reg::ZERO, true));
     exec(dut, iupt(Cond::EQZ, Reg::R0));
-    assert(!dut->iupt_o);
+    assert_eql(false, dut->iupt_o);
     assert_pc(dut, 3);
 
     exec(dut, load_const(0));
     exec(dut, dual(Op::ADD, Reg::ZERO, Reg::R0, true));
     exec(dut, iupt(Cond::EQZ, Reg::R2));
     for (uint32_t i = 0; i < 3; i++) {
-        assert(dut->iupt_o);
-        assert(dut->iupt_arg_o == 64820);
+        assert_eql(true, dut->iupt_o);
+        assert_eql(64820, dut->iupt_arg_o);
         assert_pc(dut, 5);
     }
 }
@@ -194,9 +195,9 @@ static void read_offset(DUT* dut) {
     const uint32_t offset = 500;
     exec(dut, read(Reg::R0, offset));
 
-    assert(dut->r_req_o);
-    assert(dut->r_addr_o == addr + offset);
-    assert(dut->r_size_o == DataSize::B32);
+    assert_eql(true, dut->r_req_o);
+    assert_eql(addr + offset, dut->r_addr_o);
+    assert_eql(DataSize::B32, dut->r_size_o);
 }
 
 static void read_neg_offset(DUT* dut) {
@@ -208,9 +209,9 @@ static void read_neg_offset(DUT* dut) {
     const uint32_t offset = 23;
     exec(dut, read(Reg::R0, offset, true));
 
-    assert(dut->r_req_o);
-    assert(dut->r_addr_o == addr - offset);
-    assert(dut->r_size_o == DataSize::B32);
+    assert_eql(true, dut->r_req_o);
+    assert_eql(addr - offset, dut->r_addr_o);
+    assert_eql(DataSize::B32, dut->r_size_o);
 }
 
 static void read_sized(DUT* dut) {
@@ -222,9 +223,9 @@ static void read_sized(DUT* dut) {
     const uint32_t offset = 23;
     exec(dut, read(Reg::R0, offset, true, DataSize::B8));
 
-    assert(dut->r_req_o);
-    assert(dut->r_addr_o == addr - offset);
-    assert(dut->r_size_o == DataSize::B8);
+    assert_eql(true, dut->r_req_o);
+    assert_eql(addr - offset, dut->r_addr_o);
+    assert_eql(DataSize::B8, dut->r_size_o);
 }
 
 static void read_cond(DUT* dut) {
@@ -232,7 +233,7 @@ static void read_cond(DUT* dut) {
 
     exec(dut, load_const(3));
     exec(dut, read(Cond::EQZ, Reg::R0, 0));
-    assert(!dut->r_req_o);
+    assert_eql(false, dut->r_req_o);
 }
 
 static void write_offset(DUT* dut) {
@@ -246,10 +247,10 @@ static void write_offset(DUT* dut) {
     const uint32_t offset = 500;
     exec(dut, write(Reg::R1, Reg::R0, offset));
 
-    assert(dut->w_req_o);
-    assert(dut->w_addr_o == addr + offset);
-    assert(dut->w_size_o == DataSize::B32);
-    assert(dut->write_o == value);
+    assert_eql(true, dut->w_req_o);
+    assert_eql(addr + offset, dut->w_addr_o);
+    assert_eql(DataSize::B32, dut->w_size_o);
+    assert_eql(value, dut->write_o);
 }
 
 static void write_neg_offset(DUT* dut) {
@@ -263,10 +264,10 @@ static void write_neg_offset(DUT* dut) {
     const uint32_t offset = 23;
     exec(dut, write(Reg::R1, Reg::R0, offset, true));
 
-    assert(dut->w_req_o);
-    assert(dut->w_addr_o == addr - offset);
-    assert(dut->w_size_o == DataSize::B32);
-    assert(dut->write_o == value);
+    assert_eql(true, dut->w_req_o);
+    assert_eql(addr - offset, dut->w_addr_o);
+    assert_eql(DataSize::B32, dut->w_size_o);
+    assert_eql(value, dut->write_o);
 }
 
 static void write_sized(DUT* dut) {
@@ -280,10 +281,10 @@ static void write_sized(DUT* dut) {
     const uint32_t offset = 23;
     exec(dut, write(Reg::R1, Reg::R0, offset, true, DataSize::B8));
 
-    assert(dut->w_req_o);
-    assert(dut->w_addr_o == addr - offset);
-    assert(dut->w_size_o == DataSize::B8);
-    assert(dut->write_o == value); 
+    assert_eql(true, dut->w_req_o);
+    assert_eql(addr - offset, dut->w_addr_o);
+    assert_eql(DataSize::B8, dut->w_size_o);
+    assert_eql(value, dut->write_o);
 }
 
 static void write_cond(DUT* dut) {
@@ -291,7 +292,7 @@ static void write_cond(DUT* dut) {
 
     exec(dut, load_const(3));
     exec(dut, write(Cond::EQZ, Reg::R1, Reg::ZERO, 0));
-    assert(!dut->w_req_o);
+    assert_eql(false, dut->w_req_o);
 }
 
 static void add_no_reg_shift(DUT* dut) {
@@ -538,7 +539,7 @@ int main(int argc, char** argv) {
     contextp->commandArgs(argc, argv);
 
     DUT* dut = new DUT{contextp};
-    start_trace(dut);
+    start_trace(dut, &ns);
 
     load_const_and_iupt(dut);
     cond_iupt(dut);
@@ -582,7 +583,7 @@ int main(int argc, char** argv) {
     }
 
     pulse(dut);
-    stop_trace(dut);
+    stop_trace();
 
     delete dut;
     delete contextp;
