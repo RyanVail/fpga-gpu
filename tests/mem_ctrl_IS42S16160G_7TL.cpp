@@ -136,7 +136,7 @@ static void mixed_size_read_on_load(DUT* dut) {
     write(dut, DATA_64_BITS, 0, a);
     write(dut, DATA_64_BITS, 64 * 8, b);
 
-    //assert(read(dut, DATA_8_BITS, 0) == (a & 0xFF));
+    assert(read(dut, DATA_8_BITS, 0) == (a & 0xFF));
     assert(read(dut, DATA_16_BITS, 64 * 8 + 2) == ((b >> 16) & 0xFFFF));
 }
 

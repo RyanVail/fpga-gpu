@@ -32,12 +32,18 @@ module mem_ctrl #(
 
     localparam int bus_bytes = sdram_params.bus_width / 8;
 
-    assign dcache.addr = (bus.r_req | bus.w_req) ? bus.addr : {
-        missed_line_addr,
-        (dcache_params.addr_width - dcache_params.line_addr_width)'(
-            block_index * bus_bytes
-        )
-    };
+    always_comb begin
+        if (bus.r_req | bus.w_req | reading_sdram_done) begin
+            dcache.addr = bus.addr;
+        end else begin
+            dcache.addr = {
+                missed_line_addr,
+                (dcache_params.addr_width - dcache_params.line_addr_width)'(
+                    block_index * bus_bytes
+                )
+            };
+        end
+    end
 
     assign dcache.r_size = bus.r_size;
     assign dcache.w_size = bus.w_size;
