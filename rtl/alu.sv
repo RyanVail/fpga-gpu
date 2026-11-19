@@ -41,14 +41,16 @@ module alu #(
     output iupt_o,
 
     // The argument supplied to the interrupt handler.
-    output [`REG_WIDTH-1:0] iupt_arg_o
+    output [`REG_WIDTH-1:0] iupt_arg_o,
+
+    // High means continue to the next instruction from an iupt instruction.
+    input iupt_done_i
 );
     // The width of a register.
     localparam width = `REG_WIDTH;
 
     logic [pc_width-1:0] pc;
 
-    // TODO: There has to be a way to exit the interrupt.
     assign iupt_o = (op == ALU_OP_INTERRUPT && exec);
     assign iupt_arg_o = reg_value_0;
 
@@ -358,7 +360,7 @@ module alu #(
     end endgenerate
 
     // TODO: This should also stall for memory.
-    wire stalled = (op == ALU_OP_INTERRUPT) && exec;
+    wire stalled = (op == ALU_OP_INTERRUPT && !iupt_done_i) && exec;
     wire branching = (op == ALU_OP_BRANCH) && exec;
 
     // `pc_o` is wired to the next pc so the control unit doesn't need to wait

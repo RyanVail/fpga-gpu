@@ -28,11 +28,9 @@ module alu_tb #(
     output logic [mem_addr_width-1:0] r_addr_o,
     output dcache_data_size_e r_size_o,
 
-    // High when an interrupt is raised.
     output iupt_o,
-
-    // The argument supplied to the interrupt handler.
-    output [`REG_WIDTH-1:0] iupt_arg_o
+    output [`REG_WIDTH-1:0] iupt_arg_o,
+    input iupt_done_i
 );
     mem_ctrl_if #(dcache_params) mem_ctrl_bus();
 
@@ -70,6 +68,7 @@ module alu_tb #(
         .flags_o(flags_o),
         .mem_bus(mem_ctrl_bus),
         .iupt_o(iupt_o),
-        .iupt_arg_o(iupt_arg_o)
+        .iupt_arg_o(iupt_arg_o),
+        .iupt_done_i(iupt_done_i)
     );
 endmodule

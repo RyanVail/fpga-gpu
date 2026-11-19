@@ -21,7 +21,8 @@ module ctrl_unit_tb #(
 
     // TODO: This is tmp for testing.
     output iupt_o,
-    output [`REG_WIDTH-1:0] iupt_arg_o
+    output [`REG_WIDTH-1:0] iupt_arg_o,
+    input iupt_done_i
 );
     mem_ctrl_if #(dcache_params) mem_ctrl_bus();
 
@@ -52,6 +53,7 @@ module ctrl_unit_tb #(
         .load_inst_i(load_inst_i),
         .iupt_o(iupt_o),
         .iupt_arg_o(iupt_arg_o),
+        .iupt_done_i(iupt_done_i),
         .mem_ctrl_bus(mem_ctrl_bus)
     );
 endmodule

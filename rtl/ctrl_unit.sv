@@ -25,6 +25,7 @@ module ctrl_unit #(
     // TODO: This is tmp for testing.
     output iupt_o,
     output [`REG_WIDTH-1:0] iupt_arg_o,
+    input iupt_done_i,
 
     mem_ctrl_if mem_ctrl_bus
 );
@@ -49,7 +50,8 @@ module ctrl_unit #(
         .flags_o(alu_flags),
         .mem_bus(mem_ctrl_bus),
         .iupt_o(iupt_o),
-        .iupt_arg_o(iupt_arg_o)
+        .iupt_arg_o(iupt_arg_o),
+        .iupt_done_i(iupt_done_i)
     );
 
     logic [inst_index_width-1:0] load_index;

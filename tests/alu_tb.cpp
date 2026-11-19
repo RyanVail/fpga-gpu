@@ -29,6 +29,7 @@ static void pulse(DUT* dut) {
 
 static void reset(DUT* dut) {
     dut->inst_i = nop();
+    dut->iupt_done_i = false;
 
     dut->reset_i = 1;
     pulse(dut);
@@ -98,6 +99,28 @@ static void cond_iupt(DUT* dut) {
         assert_eql(64820, dut->iupt_arg_o);
         assert_pc(dut, 5);
     }
+}
+
+static void continue_after_iupt(DUT* dut) {
+    reset(dut);
+
+    const uint32_t value = 4189;
+
+    exec(dut, load_const(value));
+    exec(dut, load_const(0));
+    exec(dut, iupt(Reg::R1));
+    for (uint32_t i = 0; i < 3; i++) {
+        assert_eql(true, dut->iupt_o);
+        assert_eql(value, dut->iupt_arg_o);
+        assert_pc(dut, 2);
+    }
+
+    dut->iupt_done_i = true;
+    exec(dut, dual(Op::ADD, Reg::R1, Reg::R1, true));
+
+    assert_eql(false, dut->iupt_o);
+    assert_pc(dut, 3);
+    assert_reg(dut, Reg::R0, value + value);
 }
 
 static void eqz_flag(DUT* dut) {
@@ -543,6 +566,7 @@ int main(int argc, char** argv) {
 
     load_const_and_iupt(dut);
     cond_iupt(dut);
+    continue_after_iupt(dut);
     eqz_flag(dut);
     neg_flag(dut);
     cond_branch(dut);
